@@ -14,7 +14,8 @@ export const getFeed = catchAsync(async (req, res) => {
 	const page = parseInt(req.query.page, 10) || 1;
 	const limit = parseInt(req.query.limit, 10) || 10;
 	const location = req.query.location || null;
-	const result = await postsService.getFeed({ page, limit, location });
+	const userId = req.user?.id || null;
+	const result = await postsService.getFeed({ page, limit, location, userId });
 	res.json({ success: true, data: result });
 });
 

@@ -65,6 +65,36 @@ export const unfollowFromFeed = createAsyncThunk("feed/unfollowFromFeed", async 
 	}
 });
 
+export const fetchBlockedIds = createAsyncThunk("feed/fetchBlockedIds", async (_, { rejectWithValue }) => {
+	try {
+		const { data } = await api.get("/blocks/ids");
+		return data.data.blockedIds;
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
+export const blockFromFeed = createAsyncThunk("feed/blockFromFeed", async (userId, { rejectWithValue }) => {
+	try {
+		await api.post(`/blocks/${userId}`);
+		return userId;
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
+export const reportFromFeed = createAsyncThunk(
+	"feed/reportFromFeed",
+	async ({ userId, reason, details }, { rejectWithValue }) => {
+		try {
+			await api.post(`/reports/${userId}`, { reason, details });
+			return userId;
+		} catch (err) {
+			return rejectWithValue(err.message);
+		}
+	},
+);
+
 // ─── Slice ───────────────────────────────────────────────────
 
 const initialState = {
@@ -76,6 +106,7 @@ const initialState = {
 	locations: [],
 	selectedLocation: null,
 	followingIds: [],
+	blockedIds: [],
 };
 
 const feedSlice = createSlice({
@@ -157,6 +188,18 @@ const feedSlice = createSlice({
 
 		// Unfollow from feed
 		builder.addCase(unfollowFromFeed.fulfilled, (state, action) => {
+			state.followingIds = state.followingIds.filter((id) => id !== action.payload);
+		});
+
+		// Fetch blocked IDs
+		builder.addCase(fetchBlockedIds.fulfilled, (state, action) => {
+			state.blockedIds = action.payload;
+		});
+
+		// Block from feed — add to blocked list and remove posts by that user
+		builder.addCase(blockFromFeed.fulfilled, (state, action) => {
+			state.blockedIds.push(action.payload);
+			state.posts = state.posts.filter((post) => post.user.id !== action.payload);
 			state.followingIds = state.followingIds.filter((id) => id !== action.payload);
 		});
 	},

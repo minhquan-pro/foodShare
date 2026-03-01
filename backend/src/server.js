@@ -14,6 +14,8 @@ import postsRoutes from "./features/posts/posts.routes.js";
 import likesRoutes from "./features/likes/likes.routes.js";
 import commentsRoutes from "./features/comments/comments.routes.js";
 import usersRoutes from "./features/users/users.routes.js";
+import blocksRoutes from "./features/blocks/blocks.routes.js";
+import reportsRoutes from "./features/reports/reports.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -36,6 +38,8 @@ app.use("/api/posts", postsRoutes);
 app.use("/api/likes", likesRoutes);
 app.use("/api/comments", commentsRoutes);
 app.use("/api/users", usersRoutes);
+app.use("/api/blocks", blocksRoutes);
+app.use("/api/reports", reportsRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

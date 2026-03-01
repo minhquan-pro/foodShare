@@ -1,5 +1,6 @@
 import prisma from "../../utils/prisma.js";
 import { ApiError } from "../../utils/ApiError.js";
+import { getAllBlockedUserIds } from "../blocks/blocks.service.js";
 
 const POST_INCLUDE = {
 	user: { select: { id: true, name: true, avatarUrl: true } },
@@ -23,11 +24,21 @@ export const createPost = async (userId, data, imageUrl) => {
 
 /**
  * Get paginated feed of latest posts, optionally filtered by location.
+ * Excludes posts from blocked users (both directions).
  */
-export const getFeed = async ({ page = 1, limit = 10, location = null }) => {
+export const getFeed = async ({ page = 1, limit = 10, location = null, userId = null }) => {
 	const skip = (page - 1) * limit;
 
-	const where = location ? { restaurantAddress: { contains: location } } : {};
+	const where = {};
+	if (location) where.restaurantAddress = { contains: location };
+
+	// Filter out blocked users
+	if (userId) {
+		const blockedIds = await getAllBlockedUserIds(userId);
+		if (blockedIds.length > 0) {
+			where.userId = { notIn: blockedIds };
+		}
+	}
 
 	const [posts, total] = await Promise.all([
 		prisma.post.findMany({
@@ -74,6 +85,7 @@ export const getDistinctLocations = async () => {
 
 /**
  * Get posts from users that the current user follows.
+ * Excludes posts from blocked users (both directions).
  */
 export const getFriendsFeed = async (userId, { page = 1, limit = 10 }) => {
 	const skip = (page - 1) * limit;
@@ -83,7 +95,12 @@ export const getFriendsFeed = async (userId, { page = 1, limit = 10 }) => {
 		where: { followerId: userId },
 		select: { followingId: true },
 	});
-	const followingIds = following.map((f) => f.followingId);
+
+	// Get blocked user IDs (both directions)
+	const blockedIds = await getAllBlockedUserIds(userId);
+
+	// Filter out blocked users from following list
+	const followingIds = following.map((f) => f.followingId).filter((id) => !blockedIds.includes(id));
 
 	const [posts, total] = await Promise.all([
 		prisma.post.findMany({

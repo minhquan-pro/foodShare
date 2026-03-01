@@ -5,6 +5,7 @@ import {
 	fetchFriendsFeed,
 	fetchLocations,
 	fetchFollowingIds,
+	fetchBlockedIds,
 	setFeedType,
 	setSelectedLocation,
 } from "./feedSlice.js";
@@ -20,6 +21,7 @@ export default function FeedPage() {
 	useEffect(() => {
 		dispatch(fetchLocations());
 		dispatch(fetchFollowingIds());
+		dispatch(fetchBlockedIds());
 	}, [dispatch]);
 
 	// Load posts when feedType or selectedLocation changes

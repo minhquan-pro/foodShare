@@ -62,6 +62,45 @@ export const fetchFollowStatus = createAsyncThunk("profile/fetchFollowStatus", a
 	}
 });
 
+export const fetchBlockStatus = createAsyncThunk("profile/fetchBlockStatus", async (userId, { rejectWithValue }) => {
+	try {
+		const { data } = await api.get(`/blocks/${userId}/status`);
+		return data.data.blocked;
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
+export const blockUser = createAsyncThunk("profile/blockUser", async (userId, { rejectWithValue }) => {
+	try {
+		await api.post(`/blocks/${userId}`);
+		return userId;
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
+export const unblockUser = createAsyncThunk("profile/unblockUser", async (userId, { rejectWithValue }) => {
+	try {
+		await api.delete(`/blocks/${userId}`);
+		return userId;
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
+export const reportUser = createAsyncThunk(
+	"profile/reportUser",
+	async ({ userId, reason, details }, { rejectWithValue }) => {
+		try {
+			const { data } = await api.post(`/reports/${userId}`, { reason, details });
+			return data.data.report;
+		} catch (err) {
+			return rejectWithValue(err.message);
+		}
+	},
+);
+
 // ─── Slice ───────────────────────────────────────────────────
 
 const initialState = {
@@ -69,6 +108,7 @@ const initialState = {
 	posts: [],
 	pagination: null,
 	isFollowing: false,
+	isBlocked: false,
 	loading: false,
 	error: null,
 };
@@ -82,6 +122,7 @@ const profileSlice = createSlice({
 			state.posts = [];
 			state.pagination = null;
 			state.isFollowing = false;
+			state.isBlocked = false;
 		},
 	},
 	extraReducers: (builder) => {
@@ -129,6 +170,22 @@ const profileSlice = createSlice({
 		// Follow status
 		builder.addCase(fetchFollowStatus.fulfilled, (state, action) => {
 			state.isFollowing = action.payload;
+		});
+
+		// Block status
+		builder.addCase(fetchBlockStatus.fulfilled, (state, action) => {
+			state.isBlocked = action.payload;
+		});
+
+		// Block user
+		builder.addCase(blockUser.fulfilled, (state) => {
+			state.isBlocked = true;
+			state.isFollowing = false;
+		});
+
+		// Unblock user
+		builder.addCase(unblockUser.fulfilled, (state) => {
+			state.isBlocked = false;
 		});
 	},
 });
