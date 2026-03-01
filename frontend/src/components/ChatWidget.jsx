@@ -40,6 +40,18 @@ export default function ChatWidget() {
 		return () => document.removeEventListener("mousedown", handleClickOutside);
 	}, [open]);
 
+	// Disable body scroll when chat panel is open
+	useEffect(() => {
+		if (open) {
+			document.body.style.overflow = "hidden";
+		} else {
+			document.body.style.overflow = "";
+		}
+		return () => {
+			document.body.style.overflow = "";
+		};
+	}, [open]);
+
 	// Fetch conversations & unread count on mount
 	useEffect(() => {
 		if (currentUser) {
