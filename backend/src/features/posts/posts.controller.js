@@ -33,7 +33,23 @@ export const getFriendsFeed = catchAsync(async (req, res) => {
 
 export const getPostById = catchAsync(async (req, res) => {
 	const post = await postsService.getPostById(req.params.id);
-	res.json({ success: true, data: { post } });
+
+	// Get liked comment IDs for current user
+	let likedCommentIds = [];
+	if (req.user && post.comments?.length) {
+		const extractIds = (comments) => {
+			const ids = [];
+			for (const c of comments) {
+				ids.push(c.id);
+				if (c.replies) ids.push(...extractIds(c.replies));
+			}
+			return ids;
+		};
+		const { getUserLikedCommentIds } = await import("../comments/comments.service.js");
+		likedCommentIds = await getUserLikedCommentIds(req.user.id, extractIds(post.comments));
+	}
+
+	res.json({ success: true, data: { post, likedCommentIds } });
 });
 
 export const getPostBySlug = catchAsync(async (req, res) => {

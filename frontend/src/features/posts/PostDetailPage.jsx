@@ -1,7 +1,15 @@
 import { useEffect, useState } from "react";
 import { useParams, useNavigate } from "react-router-dom";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchPost, clearCurrentPost, toggleLike, addComment, deleteComment, deletePost } from "./postsSlice.js";
+import {
+	fetchPost,
+	clearCurrentPost,
+	toggleLike,
+	addComment,
+	deleteComment,
+	deletePost,
+	toggleCommentLike,
+} from "./postsSlice.js";
 import StarRating from "../../components/StarRating.jsx";
 import Spinner from "../../components/Spinner.jsx";
 import ImageLightbox from "../../components/ImageLightbox.jsx";
@@ -34,7 +42,7 @@ function timeAgo(dateStr) {
 }
 
 /* ─── Single Comment Component (recursive) ─── */
-function CommentItem({ comment, postId, currentUser, depth = 0 }) {
+function CommentItem({ comment, postId, currentUser, depth = 0, likedCommentIds }) {
 	const dispatch = useDispatch();
 	const [showReplyForm, setShowReplyForm] = useState(false);
 	const [replyText, setReplyText] = useState("");
@@ -52,7 +60,13 @@ function CommentItem({ comment, postId, currentUser, depth = 0 }) {
 		dispatch(deleteComment({ commentId: comment.id, parentId: comment.parentId }));
 	};
 
+	const handleLikeComment = () => {
+		dispatch(toggleCommentLike(comment.id));
+	};
+
 	const isOwner = currentUser?.id === comment.user.id;
+	const isLiked = likedCommentIds?.includes(comment.id);
+	const likeCount = comment._count?.commentLikes || 0;
 	const maxDepth = 3;
 
 	return (
@@ -85,6 +99,15 @@ function CommentItem({ comment, postId, currentUser, depth = 0 }) {
 
 					{/* Action buttons */}
 					<div className="mt-1.5 flex items-center gap-3">
+						<button
+							onClick={handleLikeComment}
+							className={`flex items-center gap-1 text-xs font-medium transition-colors ${
+								isLiked ? "text-red-500" : "text-gray-400 hover:text-red-500"
+							}`}
+						>
+							<FiHeart size={12} className={isLiked ? "fill-current" : ""} />
+							{likeCount > 0 && <span>{likeCount}</span>}
+						</button>
 						{depth < maxDepth && (
 							<button
 								onClick={() => setShowReplyForm(!showReplyForm)}
@@ -148,6 +171,7 @@ function CommentItem({ comment, postId, currentUser, depth = 0 }) {
 							postId={postId}
 							currentUser={currentUser}
 							depth={depth + 1}
+							likedCommentIds={likedCommentIds}
 						/>
 					))}
 				</div>
@@ -160,7 +184,7 @@ export default function PostDetailPage() {
 	const { id } = useParams();
 	const dispatch = useDispatch();
 	const navigate = useNavigate();
-	const { currentPost: post, comments, loading } = useSelector((state) => state.posts);
+	const { currentPost: post, comments, likedCommentIds, loading } = useSelector((state) => state.posts);
 	const { user: currentUser } = useSelector((state) => state.auth);
 	const [commentText, setCommentText] = useState("");
 
@@ -367,6 +391,7 @@ export default function PostDetailPage() {
 											postId={id}
 											currentUser={currentUser}
 											depth={0}
+											likedCommentIds={likedCommentIds}
 										/>
 									))
 								)}

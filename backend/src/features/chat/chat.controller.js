@@ -61,6 +61,20 @@ export const markAsRead = catchAsync(async (req, res) => {
 });
 
 /**
+ * POST /api/chat/conversations/:id/messages/:messageId/react
+ * Body: { emoji } (optional, defaults to ❤️)
+ */
+export const toggleReaction = catchAsync(async (req, res) => {
+	const { messageId } = req.params;
+	const { emoji } = req.body;
+
+	const message = await chatService.toggleMessageReaction(messageId, req.user.id, emoji || "❤️");
+	if (!message) throw ApiError.notFound("Message not found");
+
+	res.json({ success: true, data: { message } });
+});
+
+/**
  * GET /api/chat/unread-count
  */
 export const getUnreadCount = catchAsync(async (req, res) => {

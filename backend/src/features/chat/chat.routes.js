@@ -12,6 +12,7 @@ router.post("/conversations", chatController.startConversation);
 router.get("/conversations/:id/messages", chatController.getMessages);
 router.post("/conversations/:id/messages", chatController.sendMessage);
 router.patch("/conversations/:id/read", chatController.markAsRead);
+router.post("/conversations/:id/messages/:messageId/react", chatController.toggleReaction);
 router.get("/unread-count", chatController.getUnreadCount);
 
 export default router;

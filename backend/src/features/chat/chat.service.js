@@ -6,6 +6,13 @@ const USER_SELECT = {
 	avatarUrl: true,
 };
 
+const MESSAGE_INCLUDE = {
+	sender: { select: USER_SELECT },
+	reactions: {
+		include: { user: { select: { id: true, name: true } } },
+	},
+};
+
 /**
  * Get or create a 1-on-1 conversation between two users.
  */
@@ -98,7 +105,7 @@ export async function getMessages(conversationId, userId, cursor, limit = 30) {
 
 	const messages = await prisma.message.findMany({
 		where,
-		include: { sender: { select: USER_SELECT } },
+		include: MESSAGE_INCLUDE,
 		orderBy: { createdAt: "desc" },
 		take: limit,
 	});
@@ -118,7 +125,7 @@ export async function createMessage(conversationId, senderId, body) {
 
 	const message = await prisma.message.create({
 		data: { body, conversationId, senderId },
-		include: { sender: { select: USER_SELECT } },
+		include: MESSAGE_INCLUDE,
 	});
 
 	// Update conversation's updatedAt
@@ -158,6 +165,31 @@ export async function getUnreadCount(userId) {
 		},
 	});
 	return count;
+}
+
+/**
+ * Toggle a reaction (emoji) on a message.
+ */
+export async function toggleMessageReaction(messageId, userId, emoji = "❤️") {
+	const existing = await prisma.messageReaction.findUnique({
+		where: { userId_messageId_emoji: { userId, messageId, emoji } },
+	});
+
+	if (existing) {
+		await prisma.messageReaction.delete({ where: { id: existing.id } });
+	} else {
+		await prisma.messageReaction.create({
+			data: { emoji, userId, messageId },
+		});
+	}
+
+	// Return the updated message with reactions
+	const message = await prisma.message.findUnique({
+		where: { id: messageId },
+		include: MESSAGE_INCLUDE,
+	});
+
+	return message;
 }
 
 // ─── Helpers ────────────────────────────────────────────────

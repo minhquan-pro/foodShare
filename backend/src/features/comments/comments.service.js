@@ -4,14 +4,17 @@ import { ApiError } from "../../utils/ApiError.js";
 // Reusable include for nested replies (2 levels deep)
 const REPLY_INCLUDE = {
 	user: { select: { id: true, name: true, avatarUrl: true } },
+	_count: { select: { commentLikes: true } },
 	replies: {
 		orderBy: { createdAt: "asc" },
 		include: {
 			user: { select: { id: true, name: true, avatarUrl: true } },
+			_count: { select: { commentLikes: true } },
 			replies: {
 				orderBy: { createdAt: "asc" },
 				include: {
 					user: { select: { id: true, name: true, avatarUrl: true } },
+					_count: { select: { commentLikes: true } },
 				},
 			},
 		},
@@ -77,4 +80,35 @@ export const deleteComment = async (commentId, userId) => {
 
 	// Cascade delete is handled by Prisma schema
 	await prisma.comment.delete({ where: { id: commentId } });
+};
+
+/**
+ * Toggle like on a comment (like/unlike).
+ */
+export const toggleCommentLike = async (userId, commentId) => {
+	const comment = await prisma.comment.findUnique({ where: { id: commentId } });
+	if (!comment) throw ApiError.notFound("Comment not found");
+
+	const existing = await prisma.commentLike.findUnique({
+		where: { userId_commentId: { userId, commentId } },
+	});
+
+	if (existing) {
+		await prisma.commentLike.delete({ where: { id: existing.id } });
+		return { liked: false };
+	}
+
+	await prisma.commentLike.create({ data: { userId, commentId } });
+	return { liked: true };
+};
+
+/**
+ * Get IDs of comments liked by a user (for a given set of comment IDs).
+ */
+export const getUserLikedCommentIds = async (userId, commentIds) => {
+	const likes = await prisma.commentLike.findMany({
+		where: { userId, commentId: { in: commentIds } },
+		select: { commentId: true },
+	});
+	return likes.map((l) => l.commentId);
 };

@@ -103,6 +103,16 @@ const chatSlice = createSlice({
 		resetChat() {
 			return initialState;
 		},
+		updateMessageReactions(state, action) {
+			const { conversationId, message } = action.payload;
+			const msgs = state.messages[conversationId];
+			if (msgs) {
+				const idx = msgs.findIndex((m) => m.id === message.id);
+				if (idx !== -1) {
+					msgs[idx] = { ...msgs[idx], reactions: message.reactions };
+				}
+			}
+		},
 	},
 	extraReducers: (builder) => {
 		builder
@@ -157,6 +167,7 @@ export const {
 	incrementUnread,
 	clearConversationUnread,
 	resetChat,
+	updateMessageReactions,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;

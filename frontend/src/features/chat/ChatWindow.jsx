@@ -1,8 +1,8 @@
 import { useState, useEffect, useRef, useCallback } from "react";
 import { Link } from "react-router-dom";
 import { useDispatch } from "react-redux";
-import { addMessage } from "./chatSlice.js";
-import { FiArrowLeft, FiSend, FiSmile, FiMoreVertical } from "react-icons/fi";
+import { addMessage, updateMessageReactions } from "./chatSlice.js";
+import { FiArrowLeft, FiSend, FiSmile, FiMoreVertical, FiHeart } from "react-icons/fi";
 
 function formatMessageTime(dateStr) {
 	const date = new Date(dateStr);
@@ -86,14 +86,22 @@ export default function ChatWindow({
 			}
 		};
 
+		const handleReactionUpdated = ({ conversationId, message }) => {
+			if (conversationId === conversation.id) {
+				dispatch(updateMessageReactions({ conversationId, message }));
+			}
+		};
+
 		socket.on("chat:typing", handleTyping);
 		socket.on("chat:stopTyping", handleStopTyping);
+		socket.on("chat:messageReactionUpdated", handleReactionUpdated);
 
 		return () => {
 			socket.off("chat:typing", handleTyping);
 			socket.off("chat:stopTyping", handleStopTyping);
+			socket.off("chat:messageReactionUpdated", handleReactionUpdated);
 		};
-	}, [socket, conversation.id, currentUser.id]);
+	}, [socket, conversation.id, currentUser.id, dispatch]);
 
 	// Handle input change with typing indicator
 	const handleInputChange = (e) => {
@@ -144,6 +152,16 @@ export default function ChatWindow({
 			e.preventDefault();
 			handleSend();
 		}
+	};
+
+	// Toggle heart reaction on a message
+	const handleToggleReaction = (messageId) => {
+		if (!socket) return;
+		socket.emit("chat:toggleReaction", {
+			conversationId: conversation.id,
+			messageId,
+			emoji: "❤️",
+		});
 	};
 
 	// Handle scroll for loading older messages
@@ -270,24 +288,68 @@ export default function ChatWindow({
 											</div>
 										)}
 
-										{/* Message bubble */}
-										<div
-											className={`group relative max-w-[70%] rounded-2xl px-3.5 py-2 ${
-												isMine
-													? "bg-primary-500 text-white rounded-br-md"
-													: "bg-gray-100 text-gray-800 rounded-bl-md dark:bg-gray-700 dark:text-gray-100"
-											}`}
-										>
-											<p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
-												{msg.body}
-											</p>
-											<p
-												className={`text-[10px] mt-0.5 text-right ${
-													isMine ? "text-white/60" : "text-gray-400 dark:text-gray-500"
+										{/* Message bubble with reaction */}
+										<div className="relative max-w-[70%]">
+											<div
+												className={`group relative rounded-2xl px-3.5 py-2 ${
+													isMine
+														? "bg-primary-500 text-white rounded-br-md"
+														: "bg-gray-100 text-gray-800 rounded-bl-md dark:bg-gray-700 dark:text-gray-100"
 												}`}
 											>
-												{formatMessageTime(msg.createdAt)}
-											</p>
+												<p className="text-sm leading-relaxed whitespace-pre-wrap break-words">
+													{msg.body}
+												</p>
+												<p
+													className={`text-[10px] mt-0.5 text-right ${
+														isMine ? "text-white/60" : "text-gray-400 dark:text-gray-500"
+													}`}
+												>
+													{formatMessageTime(msg.createdAt)}
+												</p>
+
+												{/* Heart reaction button (appears on hover) */}
+												{!msg.id?.toString().startsWith("temp-") && (
+													<button
+														onClick={() => handleToggleReaction(msg.id)}
+														className={`absolute ${
+															isMine ? "-left-8" : "-right-8"
+														} top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity p-1 rounded-full hover:bg-gray-100 dark:hover:bg-gray-600`}
+														title="React with ❤️"
+													>
+														<FiHeart
+															size={14}
+															className={`${
+																msg.reactions?.some(
+																	(r) =>
+																		r.userId === currentUser.id ||
+																		r.user?.id === currentUser.id,
+																)
+																	? "fill-red-500 text-red-500"
+																	: "text-gray-400 hover:text-red-400"
+															}`}
+														/>
+													</button>
+												)}
+											</div>
+
+											{/* Reaction badges */}
+											{msg.reactions && msg.reactions.length > 0 && (
+												<div
+													className={`flex ${
+														isMine ? "justify-end" : "justify-start"
+													} -mt-1.5 ${isMine ? "mr-1" : "ml-1"}`}
+												>
+													<div className="flex items-center gap-0.5 rounded-full bg-white border border-gray-100 shadow-sm px-1.5 py-0.5 dark:bg-gray-800 dark:border-gray-600">
+														<span className="text-xs">❤️</span>
+														{msg.reactions.length > 1 && (
+															<span className="text-[10px] font-medium text-gray-500 dark:text-gray-400">
+																{msg.reactions.length}
+															</span>
+														)}
+													</div>
+												</div>
+											)}
 										</div>
 									</div>
 								</div>

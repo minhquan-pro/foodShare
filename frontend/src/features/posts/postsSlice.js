@@ -17,7 +17,7 @@ export const createPost = createAsyncThunk("posts/createPost", async (formData, 
 export const fetchPost = createAsyncThunk("posts/fetchPost", async (postId, { rejectWithValue }) => {
 	try {
 		const { data } = await api.get(`/posts/${postId}`);
-		return data.data.post;
+		return data.data; // { post, likedCommentIds }
 	} catch (err) {
 		return rejectWithValue(err.message);
 	}
@@ -88,12 +88,22 @@ export const deleteComment = createAsyncThunk(
 	},
 );
 
+export const toggleCommentLike = createAsyncThunk("posts/toggleCommentLike", async (commentId, { rejectWithValue }) => {
+	try {
+		const { data } = await api.post(`/comments/${commentId}/like`);
+		return { commentId, liked: data.data.liked };
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
 // ─── Slice ───────────────────────────────────────────────────
 
 const initialState = {
 	currentPost: null,
 	comments: [],
 	commentsPagination: null,
+	likedCommentIds: [],
 	loading: false,
 	error: null,
 };
@@ -106,6 +116,7 @@ const postsSlice = createSlice({
 			state.currentPost = null;
 			state.comments = [];
 			state.commentsPagination = null;
+			state.likedCommentIds = [];
 		},
 	},
 	extraReducers: (builder) => {
@@ -130,8 +141,10 @@ const postsSlice = createSlice({
 			})
 			.addCase(fetchPost.fulfilled, (state, action) => {
 				state.loading = false;
-				state.currentPost = action.payload;
-				state.comments = action.payload.comments || [];
+				const post = action.payload.post;
+				state.currentPost = post;
+				state.comments = post.comments || [];
+				state.likedCommentIds = action.payload.likedCommentIds || [];
 			})
 			.addCase(fetchPost.rejected, (state, action) => {
 				state.loading = false;
@@ -228,13 +241,43 @@ const postsSlice = createSlice({
 
 		// Fetch comments
 		builder.addCase(fetchComments.fulfilled, (state, action) => {
-			const { comments, pagination } = action.payload;
+			const { comments, pagination, likedCommentIds } = action.payload;
 			if (pagination.page === 1) {
 				state.comments = comments;
+				state.likedCommentIds = likedCommentIds || [];
 			} else {
 				state.comments = [...state.comments, ...comments];
+				if (likedCommentIds) {
+					state.likedCommentIds = [...new Set([...state.likedCommentIds, ...likedCommentIds])];
+				}
 			}
 			state.commentsPagination = pagination;
+		});
+
+		// Toggle comment like
+		builder.addCase(toggleCommentLike.fulfilled, (state, action) => {
+			const { commentId, liked } = action.payload;
+			// Update likedCommentIds
+			if (liked) {
+				if (!state.likedCommentIds.includes(commentId)) {
+					state.likedCommentIds.push(commentId);
+				}
+			} else {
+				state.likedCommentIds = state.likedCommentIds.filter((id) => id !== commentId);
+			}
+			// Update _count in comments tree
+			const updateCount = (comments) => {
+				for (const c of comments) {
+					if (c.id === commentId) {
+						if (!c._count) c._count = { commentLikes: 0 };
+						c._count.commentLikes += liked ? 1 : -1;
+						return true;
+					}
+					if (c.replies && updateCount(c.replies)) return true;
+				}
+				return false;
+			};
+			updateCount(state.comments);
 		});
 
 		// Delete post

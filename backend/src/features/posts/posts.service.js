@@ -138,14 +138,17 @@ export const getPostById = async (postId) => {
 				take: 20,
 				include: {
 					user: { select: { id: true, name: true, avatarUrl: true } },
+					_count: { select: { commentLikes: true } },
 					replies: {
 						orderBy: { createdAt: "asc" },
 						include: {
 							user: { select: { id: true, name: true, avatarUrl: true } },
+							_count: { select: { commentLikes: true } },
 							replies: {
 								orderBy: { createdAt: "asc" },
 								include: {
 									user: { select: { id: true, name: true, avatarUrl: true } },
+									_count: { select: { commentLikes: true } },
 								},
 							},
 						},
@@ -173,14 +176,17 @@ export const getPostBySlug = async (slug) => {
 				take: 20,
 				include: {
 					user: { select: { id: true, name: true, avatarUrl: true } },
+					_count: { select: { commentLikes: true } },
 					replies: {
 						orderBy: { createdAt: "asc" },
 						include: {
 							user: { select: { id: true, name: true, avatarUrl: true } },
+							_count: { select: { commentLikes: true } },
 							replies: {
 								orderBy: { createdAt: "asc" },
 								include: {
 									user: { select: { id: true, name: true, avatarUrl: true } },
+									_count: { select: { commentLikes: true } },
 								},
 							},
 						},

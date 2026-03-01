@@ -11,5 +11,6 @@ router.use(authenticate);
 router.post("/:postId", validate(createCommentSchema), commentsController.addComment);
 router.get("/:postId", commentsController.getComments);
 router.delete("/:commentId", commentsController.deleteComment);
+router.post("/:commentId/like", commentsController.toggleCommentLike);
 
 export default router;

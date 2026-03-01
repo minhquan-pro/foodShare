@@ -96,6 +96,27 @@ export function setupSocket(io) {
 			}
 		});
 
+		// ─── Toggle reaction on message ────────────────────────
+		socket.on("chat:toggleReaction", async ({ conversationId, messageId, emoji }, callback) => {
+			try {
+				const message = await chatService.toggleMessageReaction(messageId, userId, emoji || "❤️");
+				if (!message) {
+					return callback?.({ error: "Message not found" });
+				}
+
+				// Broadcast updated message to everyone in the conversation
+				io.to(`conversation:${conversationId}`).emit("chat:messageReactionUpdated", {
+					conversationId,
+					message,
+				});
+
+				callback?.({ success: true, message });
+			} catch (err) {
+				console.error("chat:toggleReaction error:", err);
+				callback?.({ error: "Failed to toggle reaction" });
+			}
+		});
+
 		// ─── Get online users ──────────────────────────────────
 		socket.on("chat:getOnlineUsers", (userIds, callback) => {
 			const online = userIds.filter((id) => onlineUsers.has(id));
