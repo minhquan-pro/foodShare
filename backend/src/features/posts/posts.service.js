@@ -51,8 +51,19 @@ export const getFeed = async ({ page = 1, limit = 10, location = null, userId = 
 		prisma.post.count({ where }),
 	]);
 
+	// Get IDs of posts liked by the current user
+	let likedPostIds = [];
+	if (userId && posts.length > 0) {
+		const likes = await prisma.like.findMany({
+			where: { userId, postId: { in: posts.map((p) => p.id) } },
+			select: { postId: true },
+		});
+		likedPostIds = likes.map((l) => l.postId);
+	}
+
 	return {
 		posts,
+		likedPostIds,
 		pagination: {
 			page,
 			limit,
@@ -113,8 +124,19 @@ export const getFriendsFeed = async (userId, { page = 1, limit = 10 }) => {
 		prisma.post.count({ where: { userId: { in: followingIds } } }),
 	]);
 
+	// Get IDs of posts liked by the current user
+	let likedPostIds = [];
+	if (posts.length > 0) {
+		const likes = await prisma.like.findMany({
+			where: { userId, postId: { in: posts.map((p) => p.id) } },
+			select: { postId: true },
+		});
+		likedPostIds = likes.map((l) => l.postId);
+	}
+
 	return {
 		posts,
+		likedPostIds,
 		pagination: {
 			page,
 			limit,

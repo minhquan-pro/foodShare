@@ -36,20 +36,31 @@ export const getPostById = catchAsync(async (req, res) => {
 
 	// Get liked comment IDs for current user
 	let likedCommentIds = [];
-	if (req.user && post.comments?.length) {
-		const extractIds = (comments) => {
-			const ids = [];
-			for (const c of comments) {
-				ids.push(c.id);
-				if (c.replies) ids.push(...extractIds(c.replies));
-			}
-			return ids;
-		};
-		const { getUserLikedCommentIds } = await import("../comments/comments.service.js");
-		likedCommentIds = await getUserLikedCommentIds(req.user.id, extractIds(post.comments));
+	let isPostLiked = false;
+	if (req.user) {
+		// Check if user liked this post
+		const like = await (
+			await import("../../utils/prisma.js")
+		).default.like.findUnique({
+			where: { userId_postId: { userId: req.user.id, postId: post.id } },
+		});
+		isPostLiked = !!like;
+
+		if (post.comments?.length) {
+			const extractIds = (comments) => {
+				const ids = [];
+				for (const c of comments) {
+					ids.push(c.id);
+					if (c.replies) ids.push(...extractIds(c.replies));
+				}
+				return ids;
+			};
+			const { getUserLikedCommentIds } = await import("../comments/comments.service.js");
+			likedCommentIds = await getUserLikedCommentIds(req.user.id, extractIds(post.comments));
+		}
 	}
 
-	res.json({ success: true, data: { post, likedCommentIds } });
+	res.json({ success: true, data: { post, likedCommentIds, isPostLiked } });
 });
 
 export const getPostBySlug = catchAsync(async (req, res) => {

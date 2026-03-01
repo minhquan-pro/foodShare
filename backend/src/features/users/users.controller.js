@@ -9,7 +9,7 @@ export const getProfile = catchAsync(async (req, res) => {
 export const getUserPosts = catchAsync(async (req, res) => {
 	const page = parseInt(req.query.page, 10) || 1;
 	const limit = parseInt(req.query.limit, 10) || 10;
-	const result = await usersService.getUserPosts(req.params.id, { page, limit });
+	const result = await usersService.getUserPosts(req.params.id, { page, limit }, req.user?.id);
 	res.json({ success: true, data: result });
 });
 

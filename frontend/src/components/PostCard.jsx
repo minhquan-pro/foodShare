@@ -35,10 +35,12 @@ function timeAgo(dateStr) {
 export default function PostCard({ post }) {
 	const dispatch = useDispatch();
 	const { user: currentUser } = useSelector((state) => state.auth);
-	const { followingIds } = useSelector((state) => state.feed);
+	const { followingIds, likedPostIds: feedLikedIds } = useSelector((state) => state.feed);
+	const { likedPostIds: profileLikedIds } = useSelector((state) => state.profile);
 
 	const isOwnPost = currentUser?.id === post.user.id;
 	const isFollowing = followingIds.includes(post.user.id);
+	const isLiked = feedLikedIds.includes(post.id) || profileLikedIds.includes(post.id);
 
 	const [menuOpen, setMenuOpen] = useState(false);
 	const [reportOpen, setReportOpen] = useState(false);
@@ -89,7 +91,7 @@ export default function PostCard({ post }) {
 	};
 
 	return (
-		<div className="card group animate-fade-in">
+		<div className="card group animate-fade-in h-full flex flex-col">
 			{/* Image */}
 			<div className="block relative overflow-hidden">
 				<ImageLightbox src={post.imageUrl} alt={post.restaurantName}>
@@ -107,100 +109,117 @@ export default function PostCard({ post }) {
 				</div>
 			</div>
 
-			<div className="p-5">
-				{/* User info row */}
-				<div className="mb-3 flex items-center justify-between">
-					<Link to={`/profile/${post.user.id}`} className="flex items-center gap-2.5 group/user">
-						<div className="relative">
-							{post.user.avatarUrl ? (
-								<ImageLightbox src={post.user.avatarUrl} alt={post.user.name}>
-									<img
-										src={post.user.avatarUrl}
-										alt={post.user.name}
-										className="h-9 w-9 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
-									/>
-								</ImageLightbox>
-							) : (
-								<div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary-100 to-primary-200 text-sm font-bold text-primary-700 dark:from-primary-900/50 dark:to-primary-800/50 dark:text-primary-400">
-									{post.user.name.charAt(0).toUpperCase()}
-								</div>
-							)}
-							{/* Follow badge */}
-							{!isOwnPost && !isFollowing && (
-								<button
-									onClick={handleFollow}
-									className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white ring-2 ring-white hover:bg-blue-600 transition-colors shadow-sm dark:ring-gray-800"
-									title={`Follow ${post.user.name}`}
-								>
-									<FiPlus size={12} strokeWidth={3} />
-								</button>
-							)}
-						</div>
-						<span className="font-semibold text-gray-800 group-hover/user:text-primary-600 transition-colors dark:text-gray-200">
-							{post.user.name}
+			<div className="flex flex-col justify-between h-full ">
+				<div className="p-5">
+					{/* User info row */}
+					<div className="mb-3 flex items-center justify-between">
+						<Link to={`/profile/${post.user.id}`} className="flex items-center gap-2.5 group/user">
+							<div className="relative">
+								{post.user.avatarUrl ? (
+									<ImageLightbox src={post.user.avatarUrl} alt={post.user.name}>
+										<img
+											src={post.user.avatarUrl}
+											alt={post.user.name}
+											className="h-9 w-9 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
+										/>
+									</ImageLightbox>
+								) : (
+									<div className="flex h-9 w-9 items-center justify-center rounded-full bg-gradient-to-br from-primary-100 to-primary-200 text-sm font-bold text-primary-700 dark:from-primary-900/50 dark:to-primary-800/50 dark:text-primary-400">
+										{post.user.name.charAt(0).toUpperCase()}
+									</div>
+								)}
+								{/* Follow badge */}
+								{!isOwnPost && !isFollowing && (
+									<button
+										onClick={handleFollow}
+										className="absolute -bottom-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-blue-500 text-white ring-2 ring-white hover:bg-blue-600 transition-colors shadow-sm dark:ring-gray-800"
+										title={`Follow ${post.user.name}`}
+									>
+										<FiPlus size={12} strokeWidth={3} />
+									</button>
+								)}
+							</div>
+							<span className="font-semibold text-gray-800 group-hover/user:text-primary-600 transition-colors dark:text-gray-200">
+								{post.user.name}
+							</span>
+						</Link>
+						<span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
+							<FiClock size={12} />
+							{timeAgo(post.createdAt)}
 						</span>
+						{/* Three-dot menu for block/report */}
+						{!isOwnPost && (
+							<div className="relative ml-1" ref={menuRef}>
+								<button
+									onClick={() => setMenuOpen(!menuOpen)}
+									className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors dark:hover:bg-gray-700 dark:hover:text-gray-300"
+								>
+									<FiMoreHorizontal size={16} />
+								</button>
+								{menuOpen && (
+									<div className="absolute right-0 top-8 z-30 w-44 rounded-xl bg-white border border-gray-200 shadow-lg py-1 animate-fade-in dark:bg-gray-800 dark:border-gray-700">
+										<button
+											onClick={handleBlock}
+											className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
+										>
+											<FiSlash size={15} className="text-red-500" />
+											Block user
+										</button>
+										<button
+											onClick={() => {
+												setMenuOpen(false);
+												setReportOpen(true);
+											}}
+											className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
+										>
+											<FiFlag size={15} className="text-orange-500" />
+											Report user
+										</button>
+									</div>
+								)}
+							</div>
+						)}
+					</div>
+
+					{/* Restaurant info */}
+					<Link to={`/posts/${post.id}`} className="block">
+						<h3 className="text-lg font-bold text-gray-900 hover:text-primary-600 transition-colors leading-snug dark:text-gray-100">
+							{post.restaurantName}
+						</h3>
 					</Link>
-					<span className="flex items-center gap-1 text-xs text-gray-400 dark:text-gray-500">
-						<FiClock size={12} />
-						{timeAgo(post.createdAt)}
-					</span>
-					{/* Three-dot menu for block/report */}
-					{!isOwnPost && (
-						<div className="relative ml-1" ref={menuRef}>
-							<button
-								onClick={() => setMenuOpen(!menuOpen)}
-								className="flex h-7 w-7 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors dark:hover:bg-gray-700 dark:hover:text-gray-300"
-							>
-								<FiMoreHorizontal size={16} />
-							</button>
-							{menuOpen && (
-								<div className="absolute right-0 top-8 z-30 w-44 rounded-xl bg-white border border-gray-200 shadow-lg py-1 animate-fade-in dark:bg-gray-800 dark:border-gray-700">
-									<button
-										onClick={handleBlock}
-										className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
-									>
-										<FiSlash size={15} className="text-red-500" />
-										Block user
-									</button>
-									<button
-										onClick={() => {
-											setMenuOpen(false);
-											setReportOpen(true);
-										}}
-										className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 transition-colors dark:text-gray-300 dark:hover:bg-gray-700"
-									>
-										<FiFlag size={15} className="text-orange-500" />
-										Report user
-									</button>
-								</div>
-							)}
-						</div>
-					)}
+					<p className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500">
+						<FiMapPin size={13} className="text-primary-400" />
+						{post.restaurantAddress}
+					</p>
+
+					{/* Description */}
+					<p className="mt-3 line-clamp-2 text-sm text-gray-600 leading-relaxed dark:text-gray-400">
+						{post.description}
+					</p>
 				</div>
 
-				{/* Restaurant info */}
-				<Link to={`/posts/${post.id}`} className="block">
-					<h3 className="text-lg font-bold text-gray-900 hover:text-primary-600 transition-colors leading-snug dark:text-gray-100">
-						{post.restaurantName}
-					</h3>
-				</Link>
-				<p className="mt-1.5 flex items-center gap-1.5 text-sm text-gray-400 dark:text-gray-500">
-					<FiMapPin size={13} className="text-primary-400" />
-					{post.restaurantAddress}
-				</p>
-
-				{/* Description */}
-				<p className="mt-3 line-clamp-2 text-sm text-gray-600 leading-relaxed dark:text-gray-400">
-					{post.description}
-				</p>
-
 				{/* Actions */}
-				<div className="mt-4 flex items-center gap-1 border-t border-gray-100 pt-3 dark:border-gray-700">
+				<div className="mt-4 flex items-center gap-1 border-t border-gray-300 pt-3 dark:border-gray-700 p-3">
 					<button
 						onClick={handleLike}
-						className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/20 transition-all duration-200"
+						className={`flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm transition-all duration-200 ${
+							isLiked
+								? "text-red-500 bg-red-50 dark:bg-red-900/20"
+								: "text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/20"
+						}`}
 					>
-						<FiHeart size={16} />
+						{isLiked ? (
+							<svg
+								xmlns="http://www.w3.org/2000/svg"
+								viewBox="0 0 24 24"
+								fill="currentColor"
+								className="w-4 h-4"
+							>
+								<path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+							</svg>
+						) : (
+							<FiHeart size={16} />
+						)}
 						<span className="font-medium">{post._count?.likes || 0}</span>
 					</button>
 					<Link

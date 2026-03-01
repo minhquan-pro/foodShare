@@ -33,7 +33,7 @@ export const getProfile = async (userId) => {
 /**
  * Get a user's posts with pagination.
  */
-export const getUserPosts = async (userId, { page = 1, limit = 10 }) => {
+export const getUserPosts = async (userId, { page = 1, limit = 10 }, currentUserId = null) => {
 	const skip = (page - 1) * limit;
 
 	const [posts, total] = await Promise.all([
@@ -50,8 +50,19 @@ export const getUserPosts = async (userId, { page = 1, limit = 10 }) => {
 		prisma.post.count({ where: { userId } }),
 	]);
 
+	// Get IDs of posts liked by the current user
+	let likedPostIds = [];
+	if (currentUserId && posts.length > 0) {
+		const likes = await prisma.like.findMany({
+			where: { userId: currentUserId, postId: { in: posts.map((p) => p.id) } },
+			select: { postId: true },
+		});
+		likedPostIds = likes.map((l) => l.postId);
+	}
+
 	return {
 		posts,
+		likedPostIds,
 		pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
 	};
 };

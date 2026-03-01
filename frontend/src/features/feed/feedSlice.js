@@ -1,5 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../lib/api.js";
+import { toggleLike } from "../posts/postsSlice.js";
 
 // ─── Async Thunks ────────────────────────────────────────────
 
@@ -107,6 +108,7 @@ const initialState = {
 	selectedLocation: null,
 	followingIds: [],
 	blockedIds: [],
+	likedPostIds: [],
 };
 
 const feedSlice = createSlice({
@@ -137,11 +139,13 @@ const feedSlice = createSlice({
 			})
 			.addCase(fetchFeed.fulfilled, (state, action) => {
 				state.loading = false;
-				const { posts, pagination } = action.payload;
+				const { posts, pagination, likedPostIds = [] } = action.payload;
 				if (pagination.page === 1) {
 					state.posts = posts;
+					state.likedPostIds = likedPostIds;
 				} else {
 					state.posts = [...state.posts, ...posts];
+					state.likedPostIds = [...new Set([...state.likedPostIds, ...likedPostIds])];
 				}
 				state.pagination = pagination;
 			})
@@ -158,11 +162,13 @@ const feedSlice = createSlice({
 			})
 			.addCase(fetchFriendsFeed.fulfilled, (state, action) => {
 				state.loading = false;
-				const { posts, pagination } = action.payload;
+				const { posts, pagination, likedPostIds = [] } = action.payload;
 				if (pagination.page === 1) {
 					state.posts = posts;
+					state.likedPostIds = likedPostIds;
 				} else {
 					state.posts = [...state.posts, ...posts];
+					state.likedPostIds = [...new Set([...state.likedPostIds, ...likedPostIds])];
 				}
 				state.pagination = pagination;
 			})
@@ -201,6 +207,34 @@ const feedSlice = createSlice({
 			state.blockedIds.push(action.payload);
 			state.posts = state.posts.filter((post) => post.user.id !== action.payload);
 			state.followingIds = state.followingIds.filter((id) => id !== action.payload);
+		});
+
+		// Optimistic toggle like from feed
+		builder.addCase(toggleLike.pending, (state, action) => {
+			const postId = action.meta.arg;
+			const isLiked = state.likedPostIds.includes(postId);
+			if (isLiked) {
+				state.likedPostIds = state.likedPostIds.filter((id) => id !== postId);
+			} else {
+				state.likedPostIds.push(postId);
+			}
+			const post = state.posts.find((p) => p.id === postId);
+			if (post) {
+				post._count.likes += isLiked ? -1 : 1;
+			}
+		});
+		builder.addCase(toggleLike.rejected, (state, action) => {
+			const postId = action.meta.arg;
+			const isLiked = state.likedPostIds.includes(postId);
+			if (isLiked) {
+				state.likedPostIds = state.likedPostIds.filter((id) => id !== postId);
+			} else {
+				state.likedPostIds.push(postId);
+			}
+			const post = state.posts.find((p) => p.id === postId);
+			if (post) {
+				post._count.likes += isLiked ? -1 : 1;
+			}
 		});
 	},
 });

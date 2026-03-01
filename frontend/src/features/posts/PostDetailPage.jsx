@@ -184,7 +184,7 @@ export default function PostDetailPage() {
 	const { id } = useParams();
 	const dispatch = useDispatch();
 	const navigate = useNavigate();
-	const { currentPost: post, comments, likedCommentIds, loading } = useSelector((state) => state.posts);
+	const { currentPost: post, comments, likedCommentIds, isPostLiked, loading } = useSelector((state) => state.posts);
 	const { user: currentUser } = useSelector((state) => state.auth);
 	const [commentText, setCommentText] = useState("");
 
@@ -309,9 +309,24 @@ export default function PostDetailPage() {
 							<div className="mt-6 flex items-center gap-2 border-t border-gray-100 pt-4 dark:border-gray-700">
 								<button
 									onClick={handleLike}
-									className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-gray-500 hover:text-red-500 hover:bg-red-50 transition-all dark:text-gray-400 dark:hover:bg-red-900/20"
+									className={`flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium transition-all ${
+										isPostLiked
+											? "text-red-500 bg-red-50 dark:bg-red-900/20"
+											: "text-gray-500 hover:text-red-500 hover:bg-red-50 dark:text-gray-400 dark:hover:bg-red-900/20"
+									}`}
 								>
-									<FiHeart size={18} />
+									{isPostLiked ? (
+										<svg
+											xmlns="http://www.w3.org/2000/svg"
+											viewBox="0 0 24 24"
+											fill="currentColor"
+											className="w-[18px] h-[18px]"
+										>
+											<path d="M11.645 20.91l-.007-.003-.022-.012a15.247 15.247 0 01-.383-.218 25.18 25.18 0 01-4.244-3.17C4.688 15.36 2.25 12.174 2.25 8.25 2.25 5.322 4.714 3 7.688 3A5.5 5.5 0 0112 5.052 5.5 5.5 0 0116.313 3c2.973 0 5.437 2.322 5.437 5.25 0 3.925-2.438 7.111-4.739 9.256a25.175 25.175 0 01-4.244 3.17 15.247 15.247 0 01-.383.219l-.022.012-.007.004-.003.001a.752.752 0 01-.704 0l-.003-.001z" />
+										</svg>
+									) : (
+										<FiHeart size={18} />
+									)}
 									<span>{post._count?.likes || 0}</span>
 								</button>
 								<span className="flex items-center gap-1.5 rounded-xl px-4 py-2 text-sm font-medium text-gray-500 dark:text-gray-400">

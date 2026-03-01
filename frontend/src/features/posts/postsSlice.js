@@ -104,6 +104,7 @@ const initialState = {
 	comments: [],
 	commentsPagination: null,
 	likedCommentIds: [],
+	isPostLiked: false,
 	loading: false,
 	error: null,
 };
@@ -117,6 +118,7 @@ const postsSlice = createSlice({
 			state.comments = [];
 			state.commentsPagination = null;
 			state.likedCommentIds = [];
+			state.isPostLiked = false;
 		},
 	},
 	extraReducers: (builder) => {
@@ -145,6 +147,7 @@ const postsSlice = createSlice({
 				state.currentPost = post;
 				state.comments = post.comments || [];
 				state.likedCommentIds = action.payload.likedCommentIds || [];
+				state.isPostLiked = action.payload.isPostLiked || false;
 			})
 			.addCase(fetchPost.rejected, (state, action) => {
 				state.loading = false;
@@ -166,11 +169,17 @@ const postsSlice = createSlice({
 				state.error = action.payload;
 			});
 
-		// Toggle like
-		builder.addCase(toggleLike.fulfilled, (state, action) => {
-			if (state.currentPost && state.currentPost.id === action.payload.postId) {
-				const delta = action.payload.liked ? 1 : -1;
-				state.currentPost._count.likes += delta;
+		// Toggle like (optimistic)
+		builder.addCase(toggleLike.pending, (state, action) => {
+			if (state.currentPost && state.currentPost.id === action.meta.arg) {
+				state.isPostLiked = !state.isPostLiked;
+				state.currentPost._count.likes += state.isPostLiked ? 1 : -1;
+			}
+		});
+		builder.addCase(toggleLike.rejected, (state, action) => {
+			if (state.currentPost && state.currentPost.id === action.meta.arg) {
+				state.isPostLiked = !state.isPostLiked;
+				state.currentPost._count.likes += state.isPostLiked ? 1 : -1;
 			}
 		});
 
@@ -254,31 +263,53 @@ const postsSlice = createSlice({
 			state.commentsPagination = pagination;
 		});
 
-		// Toggle comment like
-		builder.addCase(toggleCommentLike.fulfilled, (state, action) => {
-			const { commentId, liked } = action.payload;
-			// Update likedCommentIds
-			if (liked) {
-				if (!state.likedCommentIds.includes(commentId)) {
+		// Toggle comment like — optimistic
+		builder
+			.addCase(toggleCommentLike.pending, (state, action) => {
+				const commentId = action.meta.arg;
+				const wasLiked = state.likedCommentIds.includes(commentId);
+				// Optimistically toggle
+				if (wasLiked) {
+					state.likedCommentIds = state.likedCommentIds.filter((id) => id !== commentId);
+				} else {
 					state.likedCommentIds.push(commentId);
 				}
-			} else {
-				state.likedCommentIds = state.likedCommentIds.filter((id) => id !== commentId);
-			}
-			// Update _count in comments tree
-			const updateCount = (comments) => {
-				for (const c of comments) {
-					if (c.id === commentId) {
-						if (!c._count) c._count = { commentLikes: 0 };
-						c._count.commentLikes += liked ? 1 : -1;
-						return true;
+				// Update _count in comments tree
+				const updateCount = (comments) => {
+					for (const c of comments) {
+						if (c.id === commentId) {
+							if (!c._count) c._count = { commentLikes: 0 };
+							c._count.commentLikes += wasLiked ? -1 : 1;
+							return true;
+						}
+						if (c.replies && updateCount(c.replies)) return true;
 					}
-					if (c.replies && updateCount(c.replies)) return true;
+					return false;
+				};
+				updateCount(state.comments);
+			})
+			.addCase(toggleCommentLike.rejected, (state, action) => {
+				// Revert on failure
+				const commentId = action.meta.arg;
+				const isLiked = state.likedCommentIds.includes(commentId);
+				if (isLiked) {
+					state.likedCommentIds = state.likedCommentIds.filter((id) => id !== commentId);
+				} else {
+					state.likedCommentIds.push(commentId);
 				}
-				return false;
-			};
-			updateCount(state.comments);
-		});
+				const updateCount = (comments) => {
+					for (const c of comments) {
+						if (c.id === commentId) {
+							if (!c._count) c._count = { commentLikes: 0 };
+							c._count.commentLikes += isLiked ? -1 : 1;
+							return true;
+						}
+						if (c.replies && updateCount(c.replies)) return true;
+					}
+					return false;
+				};
+				updateCount(state.comments);
+			});
 
 		// Delete post
 		builder.addCase(deletePost.fulfilled, (state) => {
