@@ -8,6 +8,7 @@
 	body {
 		@apply min-h-screen antialiased text-gray-800 bg-gray-50 dark:bg-gray-900 dark:text-gray-200;
 		font-feature-settings: "cv02", "cv03", "cv04", "cv11";
+		scrollbar-gutter: stable;
 	}
 
 	::selection {

@@ -15,7 +15,6 @@ export default function ImageLightbox({ src, alt, children, className = "" }) {
 		setIsOpen(true);
 		setScale(1);
 		setPosition({ x: 0, y: 0 });
-		document.body.style.overflow = "hidden";
 	}, []);
 
 	const close = useCallback(() => {
@@ -23,9 +22,22 @@ export default function ImageLightbox({ src, alt, children, className = "" }) {
 		setTimeout(() => {
 			setClosing(false);
 			setIsOpen(false);
-			document.body.style.overflow = "";
 		}, 250);
 	}, []);
+
+	// Block background scroll while lightbox is open
+	useEffect(() => {
+		if (!isOpen) return;
+		const prevent = (e) => {
+			e.preventDefault();
+		};
+		window.addEventListener("wheel", prevent, { passive: false });
+		window.addEventListener("touchmove", prevent, { passive: false });
+		return () => {
+			window.removeEventListener("wheel", prevent);
+			window.removeEventListener("touchmove", prevent);
+		};
+	}, [isOpen]);
 
 	// Escape key
 	useEffect(() => {
@@ -112,7 +124,7 @@ export default function ImageLightbox({ src, alt, children, className = "" }) {
 			{isOpen && (
 				<div
 					ref={overlayRef}
-					className={`fixed inset-0 z-[200] flex items-center justify-center transition-all duration-300 ${
+					className={`fixed inset-0 z-[200] flex items-center justify-center transition-all duration-300 overscroll-none ${
 						closing ? "opacity-0" : "opacity-100"
 					}`}
 				>

@@ -33,10 +33,25 @@ export default function CreatePostModal({ isOpen, onClose }) {
 			setDragOver(false);
 			setClosing(false);
 			setStep(1);
-			document.body.style.overflow = "hidden";
 		}
+	}, [isOpen]);
+
+	// Block background scroll while modal is open
+	useEffect(() => {
+		if (!isOpen) return;
+		const prevent = (e) => {
+			// Allow scroll inside the modal content
+			if (overlayRef.current) {
+				const modal = overlayRef.current.querySelector("[data-modal-body]");
+				if (modal && modal.contains(e.target)) return;
+			}
+			e.preventDefault();
+		};
+		window.addEventListener("wheel", prevent, { passive: false });
+		window.addEventListener("touchmove", prevent, { passive: false });
 		return () => {
-			document.body.style.overflow = "";
+			window.removeEventListener("wheel", prevent);
+			window.removeEventListener("touchmove", prevent);
 		};
 	}, [isOpen]);
 
@@ -137,7 +152,7 @@ export default function CreatePostModal({ isOpen, onClose }) {
 	return (
 		<div
 			ref={overlayRef}
-			className={`fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 transition-all duration-300 ${
+			className={`fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 transition-all duration-300 overscroll-none ${
 				closing ? "opacity-0" : "opacity-100"
 			}`}
 		>
@@ -178,7 +193,7 @@ export default function CreatePostModal({ isOpen, onClose }) {
 				</div>
 
 				{/* Body */}
-				<div className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 140px)" }}>
+				<div data-modal-body className="overflow-y-auto px-6 pb-6" style={{ maxHeight: "calc(90vh - 140px)" }}>
 					{/* Step 1: Image Upload */}
 					{step === 1 && (
 						<div className="animate-fade-in">
