@@ -140,10 +140,9 @@ export default function CreatePostModal({ isOpen, onClose }) {
 			className={`fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6 transition-all duration-300 ${
 				closing ? "opacity-0" : "opacity-100"
 			}`}
-			onClick={(e) => e.target === overlayRef.current && handleClose()}
 		>
 			{/* Backdrop */}
-			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+			<div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={handleClose} />
 
 			{/* Modal */}
 			<div

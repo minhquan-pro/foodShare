@@ -115,12 +115,9 @@ export default function ImageLightbox({ src, alt, children, className = "" }) {
 					className={`fixed inset-0 z-[200] flex items-center justify-center transition-all duration-300 ${
 						closing ? "opacity-0" : "opacity-100"
 					}`}
-					onClick={(e) => {
-						if (e.target === overlayRef.current) close();
-					}}
 				>
 					{/* Backdrop */}
-					<div className="absolute inset-0 bg-black/80 backdrop-blur-md" />
+					<div className="absolute inset-0 bg-black/80 backdrop-blur-md" onClick={close} />
 
 					{/* Controls */}
 					<div className="absolute top-4 right-4 z-10 flex items-center gap-2">
