@@ -317,11 +317,11 @@ export default function ProfilePage() {
 			)}
 
 			{/* Cover */}
-			<div className="h-48 sm:h-56 bg-gradient-to-r from-primary-400 to-orange-400" />
+			<div className="h-36 sm:h-44 bg-gradient-to-r from-gray-100 to-gray-200 dark:from-gray-800 dark:to-gray-900" />
 
 			{/* Profile header */}
-			<div className="mx-auto max-w-4xl px-6">
-				<div className="-mt-16 flex flex-col sm:flex-row sm:items-end gap-5">
+			<div className="mx-auto max-w-4xl px-6 -mt-16">
+				<div className="flex flex-col sm:flex-row sm:items-end gap-5">
 					{/* Avatar */}
 					<div className="shrink-0">
 						{profile.avatarUrl ? (
