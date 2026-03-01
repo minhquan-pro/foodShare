@@ -37,3 +37,13 @@ export const getFollowingIds = catchAsync(async (req, res) => {
 	const ids = await usersService.getFollowingIds(req.user.id);
 	res.json({ success: true, data: { followingIds: ids } });
 });
+
+export const getFollowers = catchAsync(async (req, res) => {
+	const users = await usersService.getFollowers(req.params.id);
+	res.json({ success: true, data: { users } });
+});
+
+export const getFollowing = catchAsync(async (req, res) => {
+	const users = await usersService.getFollowing(req.params.id);
+	res.json({ success: true, data: { users } });
+});

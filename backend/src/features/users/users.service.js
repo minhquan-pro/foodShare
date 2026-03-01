@@ -130,3 +130,35 @@ export const getFollowingIds = async (userId) => {
 	});
 	return follows.map((f) => f.followingId);
 };
+
+/**
+ * Get list of followers for a user.
+ */
+export const getFollowers = async (userId) => {
+	const follows = await prisma.follow.findMany({
+		where: { followingId: userId },
+		select: {
+			follower: {
+				select: { id: true, name: true, avatarUrl: true, bio: true },
+			},
+		},
+		orderBy: { createdAt: "desc" },
+	});
+	return follows.map((f) => f.follower);
+};
+
+/**
+ * Get list of users that a user is following.
+ */
+export const getFollowing = async (userId) => {
+	const follows = await prisma.follow.findMany({
+		where: { followerId: userId },
+		select: {
+			following: {
+				select: { id: true, name: true, avatarUrl: true, bio: true },
+			},
+		},
+		orderBy: { createdAt: "desc" },
+	});
+	return follows.map((f) => f.following);
+};

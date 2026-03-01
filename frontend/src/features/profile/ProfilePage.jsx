@@ -17,6 +17,7 @@ import {
 import PostCard from "../../components/PostCard.jsx";
 import Spinner from "../../components/Spinner.jsx";
 import ImageLightbox from "../../components/ImageLightbox.jsx";
+import FollowListModal from "../../components/FollowListModal.jsx";
 import {
 	FiEdit2,
 	FiCamera,
@@ -55,6 +56,7 @@ export default function ProfilePage() {
 	const [reportOpen, setReportOpen] = useState(false);
 	const [reportReason, setReportReason] = useState("spam");
 	const [reportDetails, setReportDetails] = useState("");
+	const [followModal, setFollowModal] = useState({ open: false, type: "followers" });
 
 	const isOwnProfile = currentUser?.id === id;
 
@@ -472,14 +474,20 @@ export default function ProfilePage() {
 						<span className="text-lg font-bold text-gray-900 dark:text-gray-100">{postCount}</span>
 						<span className="ml-1.5 text-sm text-gray-500 dark:text-gray-400">reviews</span>
 					</div>
-					<div className="text-center">
+					<button
+						onClick={() => setFollowModal({ open: true, type: "followers" })}
+						className="text-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-1 -mx-1 transition-colors"
+					>
 						<span className="text-lg font-bold text-gray-900 dark:text-gray-100">{followerCount}</span>
 						<span className="ml-1.5 text-sm text-gray-500 dark:text-gray-400">followers</span>
-					</div>
-					<div className="text-center">
+					</button>
+					<button
+						onClick={() => setFollowModal({ open: true, type: "following" })}
+						className="text-center hover:bg-gray-50 dark:hover:bg-gray-800 rounded-lg px-3 py-1 -mx-1 transition-colors"
+					>
 						<span className="text-lg font-bold text-gray-900 dark:text-gray-100">{followingCount}</span>
 						<span className="ml-1.5 text-sm text-gray-500 dark:text-gray-400">following</span>
-					</div>
+					</button>
 				</div>
 
 				{/* Posts */}
@@ -572,6 +580,15 @@ export default function ProfilePage() {
 					</div>
 				</div>
 			)}
+
+			{/* Follow List Modal */}
+			<FollowListModal
+				isOpen={followModal.open}
+				onClose={() => setFollowModal({ open: false, type: followModal.type })}
+				userId={id}
+				type={followModal.type}
+				userName={profile?.name}
+			/>
 		</div>
 	);
 }
