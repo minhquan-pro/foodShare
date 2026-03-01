@@ -58,22 +58,27 @@ function CommentItem({ comment, postId, currentUser, depth = 0 }) {
 	return (
 		<div className={`${depth > 0 ? "ml-8 border-l-2 border-gray-100 pl-4 dark:border-gray-700" : ""}`}>
 			<div className="flex gap-3 rounded-xl p-3 hover:bg-gray-50 transition-colors group dark:hover:bg-gray-800">
-				{comment.user.avatarUrl ? (
-					<img
-						src={comment.user.avatarUrl}
-						alt={comment.user.name}
-						className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100 shrink-0 dark:ring-gray-700"
-					/>
-				) : (
-					<div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-xs font-bold text-gray-500 dark:from-gray-700 dark:to-gray-600 dark:text-gray-300">
-						{comment.user.name.charAt(0).toUpperCase()}
-					</div>
-				)}
+				<Link to={`/profile/${comment.user.id}`} className="shrink-0">
+					{comment.user.avatarUrl ? (
+						<img
+							src={comment.user.avatarUrl}
+							alt={comment.user.name}
+							className="h-8 w-8 rounded-full object-cover ring-2 ring-gray-100 dark:ring-gray-700"
+						/>
+					) : (
+						<div className="flex h-8 w-8 items-center justify-center rounded-full bg-gradient-to-br from-gray-100 to-gray-200 text-xs font-bold text-gray-500 dark:from-gray-700 dark:to-gray-600 dark:text-gray-300">
+							{comment.user.name.charAt(0).toUpperCase()}
+						</div>
+					)}
+				</Link>
 				<div className="flex-1 min-w-0">
 					<div className="flex items-center gap-2">
-						<span className="text-sm font-semibold text-gray-800 dark:text-gray-200">
+						<Link
+							to={`/profile/${comment.user.id}`}
+							className="text-sm font-semibold text-gray-800 hover:text-primary-600 transition-colors dark:text-gray-200"
+						>
 							{comment.user.name}
-						</span>
+						</Link>
 						<span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(comment.createdAt)}</span>
 					</div>
 					<p className="mt-0.5 text-sm text-gray-600 leading-relaxed dark:text-gray-400">{comment.body}</p>
