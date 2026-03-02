@@ -1,6 +1,7 @@
 import jwt from "jsonwebtoken";
 import config from "./config/index.js";
 import * as chatService from "./features/chat/chat.service.js";
+import prisma from "./utils/prisma.js";
 
 // Store online users: userId -> Set<socketId>
 const onlineUsers = new Map();
@@ -65,6 +66,40 @@ export function setupSocket(io) {
 				io.emit("chat:conversationUpdated", { conversationId, lastMessage: message });
 
 				callback?.({ success: true, message });
+
+				// ─── Auto-reply from admin ─────────────────────────
+				// If the other member is an admin, check if this is the first user message
+				// and send an automatic greeting
+				try {
+					const members = await prisma.conversationMember.findMany({
+						where: { conversationId },
+						include: { user: { select: { id: true, role: true } } },
+					});
+					const adminMember = members.find((m) => m.user.role === "admin" && m.user.id !== userId);
+					if (adminMember) {
+						// Count messages sent by this user in this conversation
+						const userMsgCount = await prisma.message.count({
+							where: { conversationId, senderId: userId },
+						});
+						// Only auto-reply on the very first message from this user
+						if (userMsgCount === 1) {
+							const autoReply = await chatService.createMessage(
+								conversationId,
+								adminMember.user.id,
+								"Chào bạn, tôi có thể giúp gì cho bạn?",
+							);
+							if (autoReply) {
+								io.to(`conversation:${conversationId}`).emit("chat:newMessage", {
+									conversationId,
+									message: autoReply,
+								});
+								io.emit("chat:conversationUpdated", { conversationId, lastMessage: autoReply });
+							}
+						}
+					}
+				} catch (err) {
+					console.error("Auto-reply error:", err);
+				}
 			} catch (err) {
 				console.error("chat:sendMessage error:", err);
 				callback?.({ error: "Failed to send message" });
