@@ -20,6 +20,7 @@ import usersRoutes from "./features/users/users.routes.js";
 import blocksRoutes from "./features/blocks/blocks.routes.js";
 import reportsRoutes from "./features/reports/reports.routes.js";
 import chatRoutes from "./features/chat/chat.routes.js";
+import notificationsRoutes from "./features/notifications/notifications.routes.js";
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -35,6 +36,9 @@ const io = new Server(httpServer, {
 	},
 });
 setupSocket(io);
+
+// Make io accessible to route handlers
+app.set("io", io);
 
 // ─── Global Middleware ───────────────────────────────────────
 app.use(helmet({ crossOriginResourcePolicy: { policy: "cross-origin" } }));
@@ -55,6 +59,7 @@ app.use("/api/users", usersRoutes);
 app.use("/api/blocks", blocksRoutes);
 app.use("/api/reports", reportsRoutes);
 app.use("/api/chat", chatRoutes);
+app.use("/api/notifications", notificationsRoutes);
 
 // Health check
 app.get("/api/health", (_req, res) => {

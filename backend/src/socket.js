@@ -31,6 +31,9 @@ export function setupSocket(io) {
 		}
 		onlineUsers.get(userId).add(socket.id);
 
+		// Join personal notification room
+		socket.join(`user:${userId}`);
+
 		// Broadcast online status
 		io.emit("user:online", { userId });
 

@@ -1,11 +1,14 @@
 import { createContext, useContext, useEffect, useState, useRef } from "react";
-import { useSelector } from "react-redux";
+import { useSelector, useDispatch } from "react-redux";
 import { io } from "socket.io-client";
+import { addNotification } from "../features/notifications/notificationsSlice.js";
+import toast from "react-hot-toast";
 
 const SocketContext = createContext(null);
 
 export function SocketProvider({ children }) {
 	const { token } = useSelector((state) => state.auth);
+	const dispatch = useDispatch();
 	const [socket, setSocket] = useState(null);
 	const [onlineUsers, setOnlineUsers] = useState(new Set());
 	const socketRef = useRef(null);
@@ -47,6 +50,22 @@ export function SocketProvider({ children }) {
 				next.delete(userId);
 				return next;
 			});
+		});
+
+		// Real-time notifications
+		newSocket.on("notification:new", (notification) => {
+			dispatch(addNotification(notification));
+			const actorName = notification.actor?.name || "Someone";
+			const postName = notification.post?.restaurantName || "your post";
+			if (notification.type === "like") {
+				toast(`${actorName} liked "${postName}"`, { icon: "❤️" });
+			} else if (notification.type === "comment_like") {
+				toast(`${actorName} liked your comment on "${postName}"`, { icon: "❤️" });
+			} else if (notification.type === "reply") {
+				toast(`${actorName} replied to your comment on "${postName}"`, { icon: "💬" });
+			} else if (notification.type === "comment") {
+				toast(`${actorName} commented on "${postName}"`, { icon: "💬" });
+			}
 		});
 
 		socketRef.current = newSocket;

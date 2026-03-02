@@ -5,6 +5,7 @@ import { logout } from "../features/auth/authSlice.js";
 import { useTheme } from "../context/ThemeContext.jsx";
 import { FiHome, FiPlus, FiUser, FiLogOut, FiSearch, FiSun, FiMoon } from "react-icons/fi";
 import CreatePostModal from "./CreatePostModal.jsx";
+import NotificationBell from "./NotificationBell.jsx";
 
 export default function Navbar() {
 	const dispatch = useDispatch();
@@ -55,7 +56,7 @@ export default function Navbar() {
 									<FiHome size={18} />
 									<span className="hidden sm:inline">Home</span>
 								</Link>
-
+								<NotificationBell />
 								<Link to={`/profile/${user.id}`} className={navLinkClass(`/profile/${user.id}`)}>
 									{user.avatarUrl ? (
 										<img

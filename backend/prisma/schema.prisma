@@ -52,6 +52,10 @@ model User {
     conversationMembers ConversationMember[]
     sentMessages        Message[]
 
+    // Notifications
+    notificationsReceived Notification[] @relation("notificationRecipient")
+    notificationsSent     Notification[] @relation("notificationActor")
+
     @@map("users")
 }
 
@@ -86,9 +90,10 @@ model Post {
     createdAt         DateTime @default(now()) @map("created_at")
     updatedAt         DateTime @updatedAt @map("updated_at")
 
-    user     User      @relation(fields: [userId], references: [id], onDelete: Cascade)
-    comments Comment[]
-    likes    Like[]
+    user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    comments      Comment[]
+    likes         Like[]
+    notifications Notification[]
 
     @@index([userId])
     @@index([createdAt(sort: Desc)])
@@ -107,11 +112,12 @@ model Comment {
     createdAt DateTime @default(now()) @map("created_at")
     updatedAt DateTime @updatedAt @map("updated_at")
 
-    user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
-    post         Post          @relation(fields: [postId], references: [id], onDelete: Cascade)
-    parent       Comment?      @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
-    replies      Comment[]     @relation("CommentReplies")
-    commentLikes CommentLike[]
+    user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+    post          Post           @relation(fields: [postId], references: [id], onDelete: Cascade)
+    parent        Comment?       @relation("CommentReplies", fields: [parentId], references: [id], onDelete: Cascade)
+    replies       Comment[]      @relation("CommentReplies")
+    commentLikes  CommentLike[]
+    notifications Notification[]
 
     @@index([postId])
     @@index([parentId])
@@ -256,4 +262,27 @@ model MessageReaction {
     @@unique([userId, messageId, emoji])
     @@index([messageId])
     @@map("message_reactions")
+}
+
+// ─────────────────────────────────────────────────────────────
+// Notification (like, comment, follow, etc.)
+// ─────────────────────────────────────────────────────────────
+model Notification {
+    id        String   @id @default(uuid())
+    type      String // "like" | "comment"
+    read      Boolean  @default(false)
+    userId    String   @map("user_id") // recipient
+    actorId   String   @map("actor_id") // who triggered this
+    postId    String?  @map("post_id")
+    commentId String?  @map("comment_id")
+    createdAt DateTime @default(now()) @map("created_at")
+
+    user    User     @relation("notificationRecipient", fields: [userId], references: [id], onDelete: Cascade)
+    actor   User     @relation("notificationActor", fields: [actorId], references: [id], onDelete: Cascade)
+    post    Post?    @relation(fields: [postId], references: [id], onDelete: Cascade)
+    comment Comment? @relation(fields: [commentId], references: [id], onDelete: Cascade)
+
+    @@index([userId, read])
+    @@index([createdAt(sort: Desc)])
+    @@map("notifications")
 }
