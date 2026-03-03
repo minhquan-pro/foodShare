@@ -19,6 +19,7 @@ model User {
     name      String
     role      String   @default("user")
     bio       String?
+    location  String?
     avatarUrl String?  @map("avatar_url")
     facebook  String?
     instagram String?

@@ -7,6 +7,7 @@ const USER_SELECT = {
 	name: true,
 	role: true,
 	bio: true,
+	location: true,
 	avatarUrl: true,
 	facebook: true,
 	instagram: true,
