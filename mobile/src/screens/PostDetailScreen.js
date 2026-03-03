@@ -26,8 +26,13 @@ import {
 	deletePost,
 	clearCurrentPost,
 	toggleCommentLike,
+	toggleReaction,
+	setUserReaction,
+	updateReactions,
 } from "../features/posts/postsSlice";
 import StarRating from "../components/StarRating";
+
+const EMOJIS = ["❤️", "😂", "🔥", "👍", "😮", "😢"];
 import VerifiedBadge from "../components/VerifiedBadge";
 import { MaterialCommunityIcons } from "@expo/vector-icons";
 import Toast from "react-native-toast-message";
@@ -130,10 +135,13 @@ export default function PostDetailScreen({ route, navigation }) {
 		commentsPagination,
 		likedCommentIds,
 		loading,
+		userReaction,
+		reactions,
 	} = useSelector((state) => state.posts);
 
 	const [commentText, setCommentText] = useState("");
 	const [replyTo, setReplyTo] = useState(null);
+	const [reactionModal, setReactionModal] = useState({ visible: false, activeTab: 'all', allUsers: [], loading: false });
 	const [imageModalVisible, setImageModalVisible] = useState(false);
 	const [deleteModalVisible, setDeleteModalVisible] = useState(false);
 
@@ -183,6 +191,51 @@ export default function PostDetailScreen({ route, navigation }) {
 
 	const handleToggleCommentLike = (commentId) => {
 		dispatch(toggleCommentLike(commentId));
+	};
+
+	const handleReaction = (emoji) => {
+		const prevReaction = userReaction;
+		const nextReaction = prevReaction === emoji ? null : emoji;
+
+		// Optimistic update
+		dispatch(setUserReaction(nextReaction));
+		let newReactions = reactions.map((r) => ({ ...r }));
+		if (prevReaction) {
+			newReactions = newReactions
+				.map((r) => (r.emoji === prevReaction ? { ...r, count: r.count - 1 } : r))
+				.filter((r) => r.count > 0);
+		}
+		if (nextReaction) {
+			const existing = newReactions.find((r) => r.emoji === nextReaction);
+			if (existing) {
+				newReactions = newReactions.map((r) =>
+					r.emoji === nextReaction ? { ...r, count: r.count + 1 } : r,
+				);
+			} else {
+				newReactions = [...newReactions, { emoji: nextReaction, count: 1 }];
+			}
+		}
+		dispatch(updateReactions(newReactions));
+
+		// API call, revert on error
+		dispatch(toggleReaction({ postId, emoji }))
+			.unwrap()
+			.catch(() => {
+				dispatch(setUserReaction(prevReaction));
+				dispatch(updateReactions(reactions));
+			});
+	};
+
+	const openReactionModal = async (tab = 'all') => {
+		setReactionModal({ visible: true, activeTab: tab, allUsers: [], loading: true });
+		try {
+			const { data } = await import('../lib/api').then((m) =>
+				m.default.get(`/posts/${postId}/reactions/users`),
+			);
+			setReactionModal((prev) => ({ ...prev, allUsers: data.data.users || [], loading: false }));
+		} catch {
+			setReactionModal((prev) => ({ ...prev, loading: false }));
+		}
 	};
 
 	if (loading && !post) {
@@ -382,8 +435,127 @@ export default function PostDetailScreen({ route, navigation }) {
 							</Text>
 							<Text style={[styles.statPillLabel, { color: colors.textMuted }]}>comments</Text>
 						</View>
+						{reactions.length > 0 && (
+						<View style={styles.reactionSummary}>
+							<TouchableOpacity onPress={() => openReactionModal('all')}>
+								<Text style={[styles.reactionTotal, { color: colors.textMuted }]}>
+									{reactions.reduce((s, r) => s + r.count, 0)}
+								</Text>
+							</TouchableOpacity>
+							{reactions
+								.sort((a, b) => b.count - a.count)
+								.slice(0, 3)
+								.map((r) => (
+									<TouchableOpacity key={r.emoji} onPress={() => openReactionModal(r.emoji)}>
+										<Text style={[styles.reactionSummaryItem, { color: colors.textSecondary }]}>
+											{r.emoji} {r.count}
+										</Text>
+									</TouchableOpacity>
+								))}
+						</View>
+					)}
+					</View>
+
+					{/* Reaction Picker */}
+					<View style={[styles.reactionPicker, { borderTopColor: colors.border }]}>
+						{EMOJIS.map((emoji) => (
+							<TouchableOpacity
+								key={emoji}
+								onPress={() => handleReaction(emoji)}
+								style={[
+									styles.emojiBtn,
+									userReaction === emoji && {
+										backgroundColor: isDark ? "#374151" : "#FFF7ED",
+										borderColor: "#F97316",
+									},
+								]}
+							>
+								<Text style={styles.emojiText}>{emoji}</Text>
+							</TouchableOpacity>
+						))}
 					</View>
 				</View>
+
+				{/* Reaction Users Modal */}
+			<Modal
+				visible={reactionModal.visible}
+				transparent
+				animationType="slide"
+				onRequestClose={() => setReactionModal((p) => ({ ...p, visible: false }))}
+			>
+				<TouchableOpacity
+					style={styles.reactionModalOverlay}
+					activeOpacity={1}
+					onPress={() => setReactionModal((p) => ({ ...p, visible: false }))}
+				>
+					<TouchableOpacity
+						activeOpacity={1}
+						style={[styles.reactionModalBox, { backgroundColor: colors.card }]}
+					>
+						<View style={[styles.reactionModalHeader, { borderBottomColor: colors.border }]}>
+							<Text style={[styles.reactionModalTitle, { color: colors.text }]}>
+								{reactionModal.allUsers.length} {reactionModal.allUsers.length === 1 ? 'reaction' : 'reactions'}
+							</Text>
+							<TouchableOpacity onPress={() => setReactionModal((p) => ({ ...p, visible: false }))}>
+								<Text style={[styles.reactionModalClose, { color: colors.textMuted }]}>✕</Text>
+							</TouchableOpacity>
+						</View>
+						<ScrollView horizontal showsHorizontalScrollIndicator={false} style={[styles.reactionTabs, { borderBottomColor: colors.border }]}>
+							<TouchableOpacity
+								style={[styles.reactionTab, reactionModal.activeTab === 'all' && [styles.reactionTabActive, { borderBottomColor: colors.primary }]]}
+								onPress={() => setReactionModal((p) => ({ ...p, activeTab: 'all' }))}
+							>
+								<Text style={[styles.reactionTabText, { color: reactionModal.activeTab === 'all' ? colors.primary : colors.textMuted }]}>
+									All {reactionModal.allUsers.length}
+								</Text>
+							</TouchableOpacity>
+							{reactions.sort((a, b) => b.count - a.count).map((r) => (
+								<TouchableOpacity
+									key={r.emoji}
+									style={[styles.reactionTab, reactionModal.activeTab === r.emoji && [styles.reactionTabActive, { borderBottomColor: colors.primary }]]}
+									onPress={() => setReactionModal((p) => ({ ...p, activeTab: r.emoji }))}
+								>
+									<Text style={[styles.reactionTabText, { color: reactionModal.activeTab === r.emoji ? colors.primary : colors.textMuted }]}>
+										{r.emoji} {r.count}
+									</Text>
+								</TouchableOpacity>
+							))}
+						</ScrollView>
+						{reactionModal.loading ? (
+							<ActivityIndicator style={{ margin: 24 }} color="#F97316" />
+						) : (
+							<FlatList
+								data={reactionModal.activeTab === 'all'
+									? reactionModal.allUsers
+									: reactionModal.allUsers.filter((u) => u.emoji === reactionModal.activeTab)}
+								keyExtractor={(item) => String(item.id)}
+								style={{ maxHeight: 320 }}
+								renderItem={({ item: u }) => (
+									<TouchableOpacity
+										style={[styles.reactionUserItem, { borderBottomColor: colors.border }]}
+										onPress={() => {
+											setReactionModal((p) => ({ ...p, visible: false }));
+											navigation.navigate('UserProfile', { userId: u.id });
+										}}
+									>
+										{u.avatarUrl ? (
+											<Image source={{ uri: getImageUrl(u.avatarUrl) }} style={styles.reactionUserAvatar} />
+										) : (
+											<View style={[styles.reactionUserAvatarPlaceholder, { backgroundColor: colors.primaryLight }]}>
+												<Text style={[styles.reactionUserAvatarText, { color: colors.primary }]}>
+													{u.name?.charAt(0).toUpperCase()}
+												</Text>
+											</View>
+										)}
+										<Text style={[styles.reactionUserName, { color: colors.text }]}>{u.name}</Text>
+										<Text style={styles.reactionUserEmoji}>{u.emoji}</Text>
+									</TouchableOpacity>
+								)}
+							/>
+						)}
+					</TouchableOpacity>
+				</TouchableOpacity>
+			</Modal>
 
 				{/* Comments */}
 				<View style={[styles.commentsSection, { backgroundColor: colors.card }]}>
@@ -874,5 +1046,114 @@ const styles = StyleSheet.create({
 	deleteModalBtnText: {
 		fontSize: 15,
 		fontWeight: "700",
+	},
+	reactionPicker: {
+		flexDirection: "row",
+		justifyContent: "space-around",
+		paddingTop: 12,
+		marginTop: 12,
+		borderTopWidth: 1,
+	},
+	emojiBtn: {
+		width: 42,
+		height: 42,
+		borderRadius: 21,
+		borderWidth: 2,
+		borderColor: "transparent",
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	emojiText: {
+		fontSize: 24,
+	},
+	reactionSummary: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 8,
+		marginLeft: "auto",
+	},
+	reactionTotal: {
+		fontSize: 13,
+		fontWeight: "700",
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+	},
+	reactionSummaryItem: {
+		fontSize: 14,
+		fontWeight: "600",
+	},
+	reactionTabs: {
+		flexDirection: "row",
+		borderBottomWidth: 1,
+	},
+	reactionTab: {
+		paddingHorizontal: 16,
+		paddingVertical: 10,
+		borderBottomWidth: 2,
+		borderBottomColor: "transparent",
+	},
+	reactionTabActive: {},
+	reactionTabText: {
+		fontSize: 14,
+		fontWeight: "600",
+	},
+	reactionModalOverlay: {
+		flex: 1,
+		backgroundColor: "rgba(0,0,0,0.4)",
+		justifyContent: "flex-end",
+	},
+	reactionModalBox: {
+		borderTopLeftRadius: 20,
+		borderTopRightRadius: 20,
+		paddingBottom: 32,
+	},
+	reactionModalHeader: {
+		flexDirection: "row",
+		alignItems: "center",
+		padding: 16,
+		borderBottomWidth: 1,
+	},
+	reactionModalTitle: {
+		fontSize: 16,
+		fontWeight: "700",
+		flex: 1,
+	},
+	reactionModalClose: {
+		fontSize: 18,
+		fontWeight: "700",
+		padding: 4,
+	},
+	reactionUserItem: {
+		flexDirection: "row",
+		alignItems: "center",
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+		borderBottomWidth: StyleSheet.hairlineWidth,
+	},
+	reactionUserAvatar: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		marginRight: 12,
+	},
+	reactionUserAvatarPlaceholder: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		marginRight: 12,
+		justifyContent: "center",
+		alignItems: "center",
+	},
+	reactionUserAvatarText: {
+		fontSize: 16,
+		fontWeight: "700",
+	},
+	reactionUserName: {
+		flex: 1,
+		fontSize: 15,
+		fontWeight: "600",
+	},
+	reactionUserEmoji: {
+		fontSize: 20,
 	},
 });

@@ -88,6 +88,15 @@ export const toggleCommentLike = createAsyncThunk("posts/toggleCommentLike", asy
 	}
 });
 
+export const toggleReaction = createAsyncThunk("posts/toggleReaction", async ({ postId, emoji }, { rejectWithValue }) => {
+	try {
+		const { data } = await api.post(`/posts/${postId}/reactions`, { emoji });
+		return data.data;
+	} catch (err) {
+		return rejectWithValue(err.message);
+	}
+});
+
 // ─── Slice ───────────────────────────────────────────────────
 
 const initialState = {
@@ -96,6 +105,8 @@ const initialState = {
 	commentsPagination: null,
 	likedCommentIds: [],
 	isPostLiked: false,
+	userReaction: null,
+	reactions: [],
 	loading: false,
 	error: null,
 };
@@ -110,6 +121,17 @@ const postsSlice = createSlice({
 			state.commentsPagination = null;
 			state.likedCommentIds = [];
 			state.isPostLiked = false;
+			state.userReaction = null;
+			state.reactions = [];
+		},
+		setUserReaction(state, action) {
+			state.userReaction = action.payload;
+		},
+		updateReactions(state, action) {
+			state.reactions = action.payload;
+			if (state.currentPost) {
+				state.currentPost.reactions = action.payload;
+			}
 		},
 	},
 	extraReducers: (builder) => {
@@ -137,6 +159,8 @@ const postsSlice = createSlice({
 				state.comments = post.comments || [];
 				state.likedCommentIds = action.payload.likedCommentIds || [];
 				state.isPostLiked = action.payload.isPostLiked || false;
+			state.userReaction = action.payload.userReaction || null;
+			state.reactions = post.reactions || [];
 			})
 			.addCase(fetchPost.rejected, (state, action) => {
 				state.loading = false;
@@ -287,5 +311,5 @@ const postsSlice = createSlice({
 	},
 });
 
-export const { clearCurrentPost } = postsSlice.actions;
+export const { clearCurrentPost, setUserReaction, updateReactions } = postsSlice.actions;
 export default postsSlice.reducer;

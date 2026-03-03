@@ -197,6 +197,19 @@ export default function PostCard({ post, onPress, onUserPress }) {
 							{post._count?.comments || 0}
 						</Text>
 					</TouchableOpacity>
+
+					{post.reactions?.length > 0 && (
+						<View style={styles.reactionSummary}>
+							{post.reactions
+								.sort((a, b) => b.count - a.count)
+								.slice(0, 3)
+								.map((r) => (
+									<Text key={r.emoji} style={[styles.reactionItem, { color: colors.textSecondary }]}>
+										{r.emoji} {r.count}
+									</Text>
+								))}
+						</View>
+					)}
 				</View>
 			</View>
 		</View>
@@ -350,4 +363,14 @@ const styles = StyleSheet.create({
 		fontWeight: "600",
 	},
 	actionTextActive: {},
+	reactionSummary: {
+		flexDirection: "row",
+		alignItems: "center",
+		gap: 6,
+		marginLeft: "auto",
+	},
+	reactionItem: {
+		fontSize: 13,
+		fontWeight: "600",
+	},
 });
