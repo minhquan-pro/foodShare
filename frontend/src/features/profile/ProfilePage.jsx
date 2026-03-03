@@ -52,6 +52,7 @@ export default function ProfilePage() {
 		bio: "",
 		location: "",
 		birthday: "",
+		showBirthYear: true,
 		facebook: "",
 		instagram: "",
 		twitter: "",
@@ -86,6 +87,7 @@ export default function ProfilePage() {
 				bio: profile.bio || "",
 				location: profile.location || "",
 				birthday: profile.birthday ? new Date(profile.birthday).toISOString().slice(0, 10) : "",
+				showBirthYear: profile.showBirthYear !== false,
 				facebook: profile.facebook || "",
 				instagram: profile.instagram || "",
 				twitter: profile.twitter || "",
@@ -120,6 +122,7 @@ export default function ProfilePage() {
 		if (editForm.bio !== undefined) formData.append("bio", editForm.bio);
 		if (editForm.location !== undefined) formData.append("location", editForm.location);
 		if (editForm.birthday !== undefined) formData.append("birthday", editForm.birthday);
+		formData.append("showBirthYear", editForm.showBirthYear.toString());
 		if (avatarFile) formData.append("avatar", avatarFile);
 		const socialFields = ["facebook", "instagram", "twitter", "tiktok", "youtube", "github"];
 		socialFields.forEach((field) => {
@@ -144,6 +147,7 @@ export default function ProfilePage() {
 				bio: profile.bio || "",
 				location: profile.location || "",
 				birthday: profile.birthday ? new Date(profile.birthday).toISOString().slice(0, 10) : "",
+				showBirthYear: profile.showBirthYear !== false,
 				facebook: profile.facebook || "",
 				instagram: profile.instagram || "",
 				twitter: profile.twitter || "",
@@ -294,6 +298,18 @@ export default function ProfilePage() {
 									/>
 								</div>
 							</div>
+							{editForm.birthday && (
+								<label className="flex items-center gap-2 cursor-pointer select-none">
+									<input
+										type="checkbox"
+										checked={!editForm.showBirthYear}
+										onChange={(e) => setEditForm((prev) => ({ ...prev, showBirthYear: !e.target.checked }))}
+										className="h-4 w-4 rounded border-gray-300 text-primary-600 focus:ring-primary-500"
+									/>
+									<span className="text-sm text-gray-600 dark:text-gray-400">Ẩn năm sinh</span>
+								</label>
+							)}
+
 							{/* Social Media */}
 							<div>
 								<label className="block text-sm font-medium text-gray-700 mb-3 dark:text-gray-300">
@@ -502,7 +518,9 @@ export default function ProfilePage() {
 							{profile.birthday && (
 								<span className="flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400">
 									<FiGift size={13} className="text-primary-400 shrink-0" />
-									{new Date(profile.birthday).toLocaleDateString("vi-VN", { day: "numeric", month: "long", year: "numeric" })}
+								{profile.showBirthYear === false
+									? new Date(profile.birthday).toLocaleDateString("vi-VN", { day: "numeric", month: "long" })
+									: new Date(profile.birthday).toLocaleDateString("vi-VN", { day: "numeric", month: "long", year: "numeric" })}
 								</span>
 							)}
 						</div>
