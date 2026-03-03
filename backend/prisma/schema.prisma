@@ -20,7 +20,8 @@ model User {
     role      String   @default("user")
     bio       String?
     location  String?
-    birthday  DateTime?
+    birthday        DateTime?
+    showBirthYear   Boolean  @default(true) @map("show_birth_year")
     avatarUrl String?  @map("avatar_url")
     facebook  String?
     instagram String?
