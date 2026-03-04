@@ -100,13 +100,24 @@ export const getMessages = catchAsync(async (req, res) => {
  */
 export const sendMessage = catchAsync(async (req, res) => {
 	const { id } = req.params;
-	const { body } = req.body;
+	const { body, replyToId } = req.body;
 	if (!body?.trim()) throw ApiError.badRequest("Message body is required");
 
-	const message = await chatService.createMessage(id, req.user.id, body.trim());
+	const message = await chatService.createMessage(id, req.user.id, body.trim(), replyToId || null);
 	if (!message) throw ApiError.forbidden("Not a member of this conversation");
 
 	res.status(201).json({ success: true, data: { message } });
+});
+
+/**
+ * DELETE /api/chat/conversations/:id/messages/:messageId
+ */
+export const deleteMessage = catchAsync(async (req, res) => {
+	const { messageId } = req.params;
+	const result = await chatService.deleteMessage(messageId, req.user.id);
+	if (!result) throw ApiError.notFound("Message not found");
+	if (result.forbidden) throw ApiError.forbidden("Cannot delete another user's message");
+	res.json({ success: true, data: { message: result.message } });
 });
 
 /**
