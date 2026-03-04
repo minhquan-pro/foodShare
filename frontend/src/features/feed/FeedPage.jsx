@@ -1,182 +1,158 @@
-import { useEffect } from "react";
+import { useEffect, useRef, useCallback, useState } from "react";
 import { useDispatch, useSelector } from "react-redux";
 import {
 	fetchFeed,
 	fetchFriendsFeed,
-	fetchLocations,
 	fetchFollowingIds,
 	fetchBlockedIds,
+	fetchStories,
 	setFeedType,
-	setSelectedLocation,
 } from "./feedSlice.js";
 import PostCard from "../../components/PostCard.jsx";
-import Spinner from "../../components/Spinner.jsx";
-import { FiTrendingUp, FiUsers, FiMapPin, FiX } from "react-icons/fi";
+import StoryBar from "../../components/StoryBar.jsx";
+import StoryViewer from "../../components/StoryViewer.jsx";
+import StoryCreateModal from "../../components/StoryCreateModal.jsx";
+
+// ─── Skeleton Card ────────────────────────────────────────────────────────────
+
+function SkeletonCard() {
+	return (
+		<div className="rounded-2xl bg-white dark:bg-gray-800 border border-gray-100 dark:border-gray-700 overflow-hidden animate-pulse">
+			<div className="h-52 bg-gray-200 dark:bg-gray-700" />
+			<div className="p-4 space-y-3">
+				<div className="flex items-center gap-2.5">
+					<div className="h-9 w-9 rounded-full bg-gray-200 dark:bg-gray-700 flex-shrink-0" />
+					<div className="space-y-1.5 flex-1">
+						<div className="h-3 w-28 bg-gray-200 dark:bg-gray-700 rounded-full" />
+						<div className="h-2.5 w-20 bg-gray-200 dark:bg-gray-700 rounded-full" />
+					</div>
+				</div>
+				<div className="space-y-2">
+					<div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-4/5" />
+					<div className="h-3 bg-gray-200 dark:bg-gray-700 rounded-full w-3/5" />
+				</div>
+				<div className="flex gap-3 pt-1">
+					<div className="h-7 w-14 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+					<div className="h-7 w-14 bg-gray-200 dark:bg-gray-700 rounded-lg" />
+				</div>
+			</div>
+		</div>
+	);
+}
+
+// ─── FeedPage ─────────────────────────────────────────────────────────────────
 
 export default function FeedPage() {
 	const dispatch = useDispatch();
-	const { posts, pagination, loading, feedType, locations, selectedLocation } = useSelector((state) => state.feed);
+	const { posts, pagination, loading, feedType } = useSelector((state) => state.feed);
+	const sentinelRef = useRef(null);
 
-	// Load locations and following IDs on mount
+	const [storyViewerIdx, setStoryViewerIdx] = useState(null);
+	const [storyCreateOpen, setStoryCreateOpen] = useState(false);
+	const { stories } = useSelector((state) => state.feed);
+
+	// Load data on mount
 	useEffect(() => {
-		dispatch(fetchLocations());
 		dispatch(fetchFollowingIds());
 		dispatch(fetchBlockedIds());
+		dispatch(fetchStories());
 	}, [dispatch]);
 
-	// Load posts when feedType or selectedLocation changes
+	// Reload when tab changes
 	useEffect(() => {
 		if (feedType === "latest") {
-			dispatch(fetchFeed({ page: 1, location: selectedLocation }));
+			dispatch(fetchFeed({ page: 1 }));
 		} else {
 			dispatch(fetchFriendsFeed({ page: 1 }));
 		}
-	}, [dispatch, feedType, selectedLocation]);
+	}, [dispatch, feedType]);
 
-	const handleLoadMore = () => {
-		if (!pagination || pagination.page >= pagination.totalPages) return;
+	// ── Infinite scroll ───────────────────────────────────────────────────────
+	const loadMore = useCallback(() => {
+		if (loading || !pagination || pagination.page >= pagination.totalPages) return;
 		const nextPage = pagination.page + 1;
 		if (feedType === "latest") {
-			dispatch(fetchFeed({ page: nextPage, location: selectedLocation }));
+			dispatch(fetchFeed({ page: nextPage }));
 		} else {
 			dispatch(fetchFriendsFeed({ page: nextPage }));
 		}
-	};
+	}, [dispatch, feedType, loading, pagination]);
 
-	const handleTabChange = (type) => {
-		dispatch(setFeedType(type));
-	};
+	useEffect(() => {
+		const el = sentinelRef.current;
+		if (!el) return;
+		const observer = new IntersectionObserver(
+			([entry]) => {
+				if (entry.isIntersecting) loadMore();
+			},
+			{ rootMargin: "300px" },
+		);
+		observer.observe(el);
+		return () => observer.disconnect();
+	}, [loadMore]);
 
-	const handleLocationChange = (loc) => {
-		dispatch(setSelectedLocation(loc === selectedLocation ? null : loc));
-	};
+	const handleTabChange = (type) => dispatch(setFeedType(type));
+
+	const isFirstLoad = loading && posts.length === 0;
+	const isLoadingMore = loading && posts.length > 0;
+	const hasMore = pagination && pagination.page < pagination.totalPages;
 
 	return (
-		<div className="mx-auto max-w-7xl px-6 py-8">
-			{/* Page header */}
-			<div className="mb-6 flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
-				<div>
-					<h1 className="text-2xl font-bold text-gray-900 tracking-tight dark:text-gray-100">
-						Discover Reviews
-					</h1>
-					<p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-						Explore the latest food experiences from the community
-					</p>
-				</div>
-				{/* Feed tabs */}
-				<div className="flex gap-1 rounded-xl bg-gray-100 p-1 dark:bg-gray-800">
-					<button
-						onClick={() => handleTabChange("latest")}
-						className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-							feedType === "latest"
-								? "bg-white text-primary-600 shadow-sm dark:bg-gray-700 dark:text-primary-400"
-								: "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-						}`}
-					>
-						<FiTrendingUp size={16} />
-						Latest
-					</button>
-					<button
-						onClick={() => handleTabChange("friends")}
-						className={`flex items-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold transition-all duration-200 ${
-							feedType === "friends"
-								? "bg-white text-primary-600 shadow-sm dark:bg-gray-700 dark:text-primary-400"
-								: "text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
-						}`}
-					>
-						<FiUsers size={16} />
-						Following
-					</button>
-				</div>
+		<>
+		<div className="mx-auto max-w-7xl px-4 sm:px-6 border-b border-gray-100 dark:border-gray-700/60">
+				<StoryBar onStoryClick={(i) => setStoryViewerIdx(i)} onAddStory={() => setStoryCreateOpen(true)} />
 			</div>
 
-			{/* Location filter */}
-			{feedType === "latest" && locations.length > 0 && (
-				<div className="mb-8 animate-fade-in">
-					<div className="flex items-center gap-2 mb-3">
-						<FiMapPin size={16} className="text-primary-500" />
-						<span className="text-sm font-semibold text-gray-700 dark:text-gray-300">
-							Filter by location
-						</span>
-						{selectedLocation && (
-							<button
-								onClick={() => handleLocationChange(null)}
-								className="ml-auto flex items-center gap-1 text-xs font-medium text-gray-400 hover:text-red-500 transition-colors dark:text-gray-500"
-							>
-								<FiX size={14} />
-								Clear filter
-							</button>
-						)}
-					</div>
-					<div className="flex flex-wrap gap-2">
-						{locations.map((loc) => (
-							<button
-								key={loc}
-								onClick={() => handleLocationChange(loc)}
-								className={`flex items-center gap-1.5 rounded-full px-4 py-2 text-sm font-medium transition-all duration-200 border ${
-									selectedLocation === loc
-										? "bg-primary-500 text-white border-primary-500 shadow-sm"
-										: "bg-white text-gray-600 border-gray-200 hover:border-primary-300 hover:text-primary-600 hover:bg-primary-50 dark:bg-gray-800 dark:text-gray-400 dark:border-gray-700 dark:hover:border-primary-500 dark:hover:text-primary-400 dark:hover:bg-primary-900/20"
-								}`}
-							>
-								<FiMapPin size={13} />
-								{loc}
-							</button>
-						))}
-					</div>
-				</div>
+			{/* Story viewer */}
+			{storyViewerIdx !== null && (
+				<StoryViewer stories={stories} initialIndex={storyViewerIdx} onClose={() => setStoryViewerIdx(null)} />
 			)}
 
-			{/* Active filter indicator */}
-			{selectedLocation && feedType === "latest" && (
-				<div className="mb-6 flex items-center gap-2 rounded-xl bg-primary-50 border border-primary-100 px-4 py-3 dark:bg-primary-900/20 dark:border-primary-800">
-					<FiMapPin size={16} className="text-primary-500" />
-					<span className="text-sm font-medium text-primary-700 dark:text-primary-300">
-						Showing reviews in <strong>{selectedLocation}</strong>
-					</span>
-					<span className="text-xs text-primary-400 dark:text-primary-500 ml-1">
-						({pagination?.total || 0} {pagination?.total === 1 ? "review" : "reviews"})
-					</span>
-				</div>
-			)}
+			{/* Story create modal */}
+			{storyCreateOpen && <StoryCreateModal onClose={() => setStoryCreateOpen(false)} />}
 
-			{/* Posts grid */}
-			{loading && posts.length === 0 ? (
-				<Spinner />
-			) : posts.length === 0 ? (
-				<div className="py-24 text-center">
-					<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
-						<span className="text-3xl">{selectedLocation ? "📍" : "🍽️"}</span>
-					</div>
-					<p className="text-lg font-semibold text-gray-700 dark:text-gray-300">
-						{selectedLocation ? `No reviews in ${selectedLocation}` : "No posts yet"}
-					</p>
-					<p className="mt-2 text-sm text-gray-400 max-w-sm mx-auto dark:text-gray-500">
-						{selectedLocation
-							? "Try selecting a different location or clear the filter"
-							: feedType === "friends"
-								? "Follow some users to see their posts here!"
-								: "Be the first to share a food review!"}
-					</p>
-				</div>
-			) : (
-				<>
+			{/* ── Main content ──────────────────────────────────────────────── */}
+			<div className="mx-auto max-w-7xl px-4 sm:px-6 py-6">
+				{/* Skeleton — first load */}
+				{isFirstLoad ? (
 					<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-						{posts.map((post) => (
-							<PostCard key={post.id} post={post} />
+						{Array.from({ length: 6 }).map((_, i) => (
+							<SkeletonCard key={i} />
 						))}
 					</div>
-
-					{/* Load more */}
-					{pagination && pagination.page < pagination.totalPages && (
-						<div className="mt-12 text-center">
-							<button onClick={handleLoadMore} className="btn-outline btn-lg" disabled={loading}>
-								{loading ? "Loading…" : "Load More Reviews"}
-							</button>
+				) : posts.length === 0 ? (
+					<div className="py-24 text-center">
+						<div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+							<span className="text-3xl">
+								{feedType === "friends" ? "👥" : "🍽️"}
+							</span>
 						</div>
-					)}
-				</>
-			)}
-		</div>
+						<p className="text-lg font-semibold text-gray-700 dark:text-gray-300">
+							{feedType === "friends"
+								? "Chưa có bài từ người bạn theo dõi"
+								: "Chưa có bài viết nào"}
+						</p>
+						<p className="mt-2 text-sm text-gray-400 dark:text-gray-500 max-w-sm mx-auto">
+							{feedType === "friends"
+								? "Hãy theo dõi mọi người để xem bài viết của họ!"
+								: "Hãy là người đầu tiên chia sẻ đánh giá món ăn!"}
+						</p>
+					</div>
+				) : (
+					<>
+						<div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+							{posts.map((post) => (
+								<PostCard key={post.id} post={post} />
+							))}
+							{/* Loading more skeletons */}
+							{isLoadingMore && Array.from({ length: 3 }).map((_, i) => <SkeletonCard key={`sk-${i}`} />)}
+						</div>
+
+						{/* Infinite scroll sentinel */}
+						{hasMore && <div ref={sentinelRef} className="h-16" />}
+					</>
+				)}
+			</div>
+		</>
 	);
 }
