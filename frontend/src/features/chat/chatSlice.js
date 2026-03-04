@@ -173,6 +173,23 @@ const chatSlice = createSlice({
 				}
 			}
 		},
+		softDeleteMessage(state, action) {
+			const { conversationId, messageId, message } = action.payload;
+			const msgs = state.messages[conversationId];
+			if (msgs) {
+				const idx = msgs.findIndex((m) => m.id === messageId);
+				if (idx !== -1) {
+					msgs[idx] = { ...msgs[idx], deleted: true, body: "", reactions: [], replyTo: null, ...(message || {}) };
+				}
+			}
+		},
+		markMessagesAsRead(state, action) {
+			const { conversationId } = action.payload;
+			const msgs = state.messages[conversationId];
+			if (msgs) {
+				msgs.forEach((m) => { m.read = true; });
+			}
+		},
 	},
 	extraReducers: (builder) => {
 		builder
@@ -275,6 +292,8 @@ export const {
 	clearConversationUnread,
 	resetChat,
 	updateMessageReactions,
+	softDeleteMessage,
+	markMessagesAsRead,
 } = chatSlice.actions;
 
 export default chatSlice.reducer;
