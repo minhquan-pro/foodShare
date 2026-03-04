@@ -1,6 +1,6 @@
 import { createSlice, createAsyncThunk } from "@reduxjs/toolkit";
 import api from "../../lib/api.js";
-import { toggleLike } from "../posts/postsSlice.js";
+import { toggleLike, toggleBookmark } from "../posts/postsSlice.js";
 
 // ─── Async Thunks ────────────────────────────────────────────
 
@@ -102,6 +102,18 @@ export const reportUser = createAsyncThunk(
 	},
 );
 
+export const fetchSavedPosts = createAsyncThunk(
+	"profile/fetchSavedPosts",
+	async ({ page = 1, limit = 10 } = {}, { rejectWithValue }) => {
+		try {
+			const { data } = await api.get(`/bookmarks?page=${page}&limit=${limit}`);
+			return data.data;
+		} catch (err) {
+			return rejectWithValue(err.message);
+		}
+	},
+);
+
 // ─── Slice ───────────────────────────────────────────────────
 
 const initialState = {
@@ -109,7 +121,11 @@ const initialState = {
 	posts: [],
 	pagination: null,
 	likedPostIds: [],
+	bookmarkedPostIds: [],
 	userReactedPosts: {}, // { [postId]: emoji }
+	savedPosts: [],
+	savedPagination: null,
+	savedLoading: false,
 	isFollowing: false,
 	isBlocked: false,
 	loading: false,
@@ -125,7 +141,11 @@ const profileSlice = createSlice({
 			state.posts = [];
 			state.pagination = null;
 			state.likedPostIds = [];
+			state.bookmarkedPostIds = [];
 			state.userReactedPosts = {};
+			state.savedPosts = [];
+			state.savedPagination = null;
+			state.savedLoading = false;
 			state.isFollowing = false;
 			state.isBlocked = false;
 		},
@@ -161,14 +181,16 @@ const profileSlice = createSlice({
 
 		// Fetch user posts
 		builder.addCase(fetchUserPosts.fulfilled, (state, action) => {
-			const { posts, pagination, likedPostIds = [], userReactedPosts = {} } = action.payload;
+			const { posts, pagination, likedPostIds = [], userReactedPosts = {}, bookmarkedPostIds = [] } = action.payload;
 			if (pagination.page === 1) {
 				state.posts = posts;
 				state.likedPostIds = likedPostIds;
+				state.bookmarkedPostIds = bookmarkedPostIds;
 				state.userReactedPosts = userReactedPosts;
 			} else {
 				state.posts = [...state.posts, ...posts];
 				state.likedPostIds = [...new Set([...state.likedPostIds, ...likedPostIds])];
+				state.bookmarkedPostIds = [...new Set([...state.bookmarkedPostIds, ...bookmarkedPostIds])];
 				state.userReactedPosts = { ...state.userReactedPosts, ...userReactedPosts };
 			}
 			state.pagination = pagination;
@@ -237,6 +259,54 @@ const profileSlice = createSlice({
 				post._count.likes += isLiked ? -1 : 1;
 			}
 		});
+
+
+		// Optimistic toggle bookmark from profile
+		builder.addCase(toggleBookmark.pending, (state, action) => {
+			const postId = action.meta.arg;
+			const isBookmarked = state.bookmarkedPostIds.includes(postId);
+			if (isBookmarked) {
+				state.bookmarkedPostIds = state.bookmarkedPostIds.filter((id) => id !== postId);
+			} else {
+				state.bookmarkedPostIds.push(postId);
+			}
+			const post = state.posts.find((p) => p.id === postId) ?? state.savedPosts.find((p) => p.id === postId);
+			if (post?._count) post._count.bookmarks = (post._count.bookmarks ?? 0) + (isBookmarked ? -1 : 1);
+		});
+		builder.addCase(toggleBookmark.rejected, (state, action) => {
+			const postId = action.meta.arg;
+			const isBookmarked = state.bookmarkedPostIds.includes(postId);
+			if (isBookmarked) {
+				state.bookmarkedPostIds = state.bookmarkedPostIds.filter((id) => id !== postId);
+			} else {
+				state.bookmarkedPostIds.push(postId);
+			}
+			const post = state.posts.find((p) => p.id === postId) ?? state.savedPosts.find((p) => p.id === postId);
+			if (post?._count) post._count.bookmarks = (post._count.bookmarks ?? 0) + (isBookmarked ? -1 : 1);
+		});
+
+		// Fetch saved posts (bookmarks)
+		builder
+			.addCase(fetchSavedPosts.pending, (state) => {
+				state.savedLoading = true;
+			})
+			.addCase(fetchSavedPosts.fulfilled, (state, action) => {
+				state.savedLoading = false;
+				const { posts, pagination, bookmarkedPostIds = [], likedPostIds = [], userReactedPosts = {} } = action.payload;
+				if (pagination.page === 1) {
+					state.savedPosts = posts;
+				} else {
+					state.savedPosts = [...state.savedPosts, ...posts];
+				}
+				state.savedPagination = pagination;
+				// Merge into shared state so PostCard shows correct bookmark/reaction status
+				state.bookmarkedPostIds = [...new Set([...state.bookmarkedPostIds, ...bookmarkedPostIds])];
+				state.likedPostIds = [...new Set([...state.likedPostIds, ...likedPostIds])];
+				state.userReactedPosts = { ...state.userReactedPosts, ...userReactedPosts };
+			})
+			.addCase(fetchSavedPosts.rejected, (state) => {
+				state.savedLoading = false;
+			});
 	},
 });
 
