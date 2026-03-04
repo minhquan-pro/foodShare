@@ -20,7 +20,7 @@ function timeAgo(dateStr) {
 }
 
 /* ─── Single Comment (recursive) ─── */
-function CommentItem({ comment, postId, currentUser, depth = 0, likedCommentIds }) {
+function CommentItem({ comment, postId, currentUser, depth = 0, likedCommentIds, parentUser = null }) {
 	const dispatch = useDispatch();
 	const [showReplyForm, setShowReplyForm] = useState(false);
 	const [replyText, setReplyText] = useState("");
@@ -48,9 +48,9 @@ function CommentItem({ comment, postId, currentUser, depth = 0, likedCommentIds 
 	const maxDepth = 3;
 
 	return (
-		<div className={`${depth > 0 ? "ml-8 border-l-2 border-gray-100 pl-4 dark:border-gray-700" : ""}`}>
+		<div className={`${depth > 0 ? "ml-6 border-l-2 border-primary-100 pl-3 dark:border-primary-900/40" : ""}`}>
 			<div className="flex gap-3 rounded-xl p-3 hover:bg-gray-50 transition-colors group dark:hover:bg-gray-800">
-				<Link to={`/profile/${comment.user.id}`} className="shrink-0">
+				<Link to={`/profile/${comment.user.id}`} className="shrink-0 mt-0.5">
 					{comment.user.avatarUrl ? (
 						<img
 							src={comment.user.avatarUrl}
@@ -64,14 +64,24 @@ function CommentItem({ comment, postId, currentUser, depth = 0, likedCommentIds 
 					)}
 				</Link>
 				<div className="flex-1 min-w-0">
-					<div className="flex items-center gap-2">
-						<Link
-							to={`/profile/${comment.user.id}`}
-							className="text-sm font-semibold text-gray-800 hover:text-primary-600 transition-colors dark:text-gray-200"
-						>
-							{comment.user.name}
-						</Link>
-						<VerifiedBadge role={comment.user.role} size={14} />
+					<div className="flex items-center gap-2 flex-wrap">
+						<div className="flex items-center gap-0.5">
+							<Link
+								to={`/profile/${comment.user.id}`}
+								className="text-sm font-semibold text-gray-800 hover:text-primary-600 transition-colors dark:text-gray-200"
+							>
+								{comment.user.name}
+							</Link>
+							<VerifiedBadge role={comment.user.role} size={14} />
+						</div>
+						{parentUser && depth > 0 && (
+							<span className="flex items-center gap-1 text-xs text-primary-500 bg-primary-50 dark:bg-primary-900/30 dark:text-primary-400 px-1.5 py-0.5 rounded-full font-medium">
+								<FiCornerDownRight size={10} />
+								<Link to={`/profile/${parentUser.id}`} className="hover:underline">
+									@{parentUser.name}
+								</Link>
+							</span>
+						)}
 						<span className="text-xs text-gray-400 dark:text-gray-500">{timeAgo(comment.createdAt)}</span>
 					</div>
 					<p className="mt-0.5 text-sm text-gray-600 leading-relaxed dark:text-gray-400">{comment.body}</p>
@@ -151,6 +161,7 @@ function CommentItem({ comment, postId, currentUser, depth = 0, likedCommentIds 
 							currentUser={currentUser}
 							depth={depth + 1}
 							likedCommentIds={likedCommentIds}
+							parentUser={comment.user}
 						/>
 					))}
 				</div>
