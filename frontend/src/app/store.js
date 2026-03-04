@@ -6,6 +6,8 @@ import profileReducer from "../features/profile/profileSlice.js";
 import chatReducer from "../features/chat/chatSlice.js";
 import notificationsReducer from "../features/notifications/notificationsSlice.js";
 import exploreReducer from "../features/explore/exploreSlice.js";
+import mapReducer from "../features/map/mapSlice.js";
+import announcementsReducer from "../features/announcements/announcementsSlice.js";
 
 export const store = configureStore({
 	reducer: {
@@ -16,6 +18,8 @@ export const store = configureStore({
 		chat: chatReducer,
 		notifications: notificationsReducer,
 		explore: exploreReducer,
+		map: mapReducer,
+		announcements: announcementsReducer,
 	},
 	devTools: import.meta.env.DEV,
 });
