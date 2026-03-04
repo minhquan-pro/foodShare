@@ -12,6 +12,14 @@ const MESSAGE_INCLUDE = {
 	reactions: {
 		include: { user: { select: { id: true, name: true, role: true } } },
 	},
+	replyTo: {
+		select: {
+			id: true,
+			body: true,
+			deleted: true,
+			sender: { select: { id: true, name: true } },
+		},
+	},
 };
 
 /**
@@ -238,7 +246,7 @@ export async function getMessages(conversationId, userId, cursor, limit = 30) {
 /**
  * Create a new message.
  */
-export async function createMessage(conversationId, senderId, body) {
+export async function createMessage(conversationId, senderId, body, replyToId = null) {
 	// Verify sender is a member
 	const member = await prisma.conversationMember.findUnique({
 		where: { conversationId_userId: { conversationId, userId: senderId } },
@@ -246,7 +254,7 @@ export async function createMessage(conversationId, senderId, body) {
 	if (!member) return null;
 
 	const message = await prisma.message.create({
-		data: { body, conversationId, senderId },
+		data: { body, conversationId, senderId, ...(replyToId ? { replyToId } : {}) },
 		include: MESSAGE_INCLUDE,
 	});
 
@@ -312,6 +320,25 @@ export async function toggleMessageReaction(messageId, userId, emoji = "❤️")
 	});
 
 	return message;
+}
+
+/**
+ * Soft-delete a single message (only by sender).
+ */
+export async function deleteMessage(messageId, userId) {
+	const message = await prisma.message.findUnique({
+		where: { id: messageId },
+		select: { senderId: true, conversationId: true },
+	});
+	if (!message) return null;
+	if (message.senderId !== userId) return { forbidden: true };
+
+	const updated = await prisma.message.update({
+		where: { id: messageId },
+		data: { deleted: true, body: "" },
+		include: MESSAGE_INCLUDE,
+	});
+	return { message: updated, conversationId: message.conversationId };
 }
 
 /**
