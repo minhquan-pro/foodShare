@@ -48,9 +48,9 @@ export function setupSocket(io) {
 		});
 
 		// ─── Send message via socket ───────────────────────────
-		socket.on("chat:sendMessage", async ({ conversationId, body }, callback) => {
+		socket.on("chat:sendMessage", async ({ conversationId, body, replyToId }, callback) => {
 			try {
-				const message = await chatService.createMessage(conversationId, userId, body.trim());
+				const message = await chatService.createMessage(conversationId, userId, body.trim(), replyToId || null);
 				if (!message) {
 					return callback?.({ error: "Not a member of this conversation" });
 				}
@@ -136,6 +136,25 @@ export function setupSocket(io) {
 				});
 			} catch (err) {
 				console.error("chat:markRead error:", err);
+			}
+		});
+
+		// ─── Delete a single message ───────────────────────────
+		socket.on("chat:deleteMessage", async ({ conversationId, messageId }, callback) => {
+			try {
+				const result = await chatService.deleteMessage(messageId, userId);
+				if (!result) return callback?.({ error: "Message not found" });
+				if (result.forbidden) return callback?.({ error: "Cannot delete another user's message" });
+
+				io.to(`conversation:${conversationId}`).emit("chat:messageDeleted", {
+					conversationId,
+					messageId,
+					message: result.message,
+				});
+				callback?.({ success: true });
+			} catch (err) {
+				console.error("chat:deleteMessage error:", err);
+				callback?.({ error: "Failed to delete message" });
 			}
 		});
 
