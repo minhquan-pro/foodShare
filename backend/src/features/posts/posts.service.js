@@ -4,7 +4,7 @@ import { getAllBlockedUserIds } from "../blocks/blocks.service.js";
 
 const POST_INCLUDE = {
 	user: { select: { id: true, name: true, role: true, avatarUrl: true } },
-	_count: { select: { likes: true, comments: true } },
+	_count: { select: { likes: true, comments: true, bookmarks: true, views: true } },
 };
 
 /**
@@ -43,7 +43,7 @@ export const createPost = async (userId, data, imageUrl) => {
 export const getFeed = async ({ page = 1, limit = 10, location = null, userId = null }) => {
 	const skip = (page - 1) * limit;
 
-	const where = {};
+	const where = { isStory: false };
 	if (location) where.restaurantAddress = { contains: location };
 
 	// Filter out blocked users
@@ -68,26 +68,30 @@ export const getFeed = async ({ page = 1, limit = 10, location = null, userId = 
 	// attach reactions counts
 	posts = await attachReactionsToPosts(posts);
 
-	// Get liked post IDs and user's reactions in parallel
+	// Get liked post IDs, user reactions, and bookmarked post IDs in parallel
 	let likedPostIds = [];
 	let userReactedPosts = {};
+	let bookmarkedPostIds = [];
 	if (userId && posts.length > 0) {
 		const postIds = posts.map((p) => p.id);
-		const [likes, userRxs] = await Promise.all([
+		const [likes, userRxs, bookmarks] = await Promise.all([
 			prisma.like.findMany({ where: { userId, postId: { in: postIds } }, select: { postId: true } }),
 			prisma.postReaction.findMany({
 				where: { userId, postId: { in: postIds } },
 				select: { postId: true, emoji: true },
 			}),
+			prisma.bookmark.findMany({ where: { userId, postId: { in: postIds } }, select: { postId: true } }),
 		]);
 		likedPostIds = likes.map((l) => l.postId);
 		for (const r of userRxs) userReactedPosts[r.postId] = r.emoji;
+		bookmarkedPostIds = bookmarks.map((b) => b.postId);
 	}
 
 	return {
 		posts,
 		likedPostIds,
 		userReactedPosts,
+		bookmarkedPostIds,
 		pagination: {
 			page,
 			limit,
@@ -158,38 +162,42 @@ export const getFriendsFeed = async (userId, { page = 1, limit = 10 }) => {
 
 	let [posts, total] = await Promise.all([
 		prisma.post.findMany({
-			where: { userId: { in: followingIds } },
+			where: { userId: { in: followingIds }, isStory: false },
 			orderBy: { createdAt: "desc" },
 			skip,
 			take: limit,
 			include: POST_INCLUDE,
 		}),
-		prisma.post.count({ where: { userId: { in: followingIds } } }),
+		prisma.post.count({ where: { userId: { in: followingIds }, isStory: false } }),
 	]);
 
 	// attach reactions counts
 	posts = await attachReactionsToPosts(posts);
 
-	// Get liked post IDs and user's reactions in parallel
+	// Get liked post IDs, user reactions, and bookmarked post IDs in parallel
 	let likedPostIds = [];
 	let userReactedPosts = {};
+	let bookmarkedPostIds = [];
 	if (posts.length > 0) {
 		const postIds = posts.map((p) => p.id);
-		const [likes, userRxs] = await Promise.all([
+		const [likes, userRxs, bookmarks] = await Promise.all([
 			prisma.like.findMany({ where: { userId, postId: { in: postIds } }, select: { postId: true } }),
 			prisma.postReaction.findMany({
 				where: { userId, postId: { in: postIds } },
 				select: { postId: true, emoji: true },
 			}),
+			prisma.bookmark.findMany({ where: { userId, postId: { in: postIds } }, select: { postId: true } }),
 		]);
 		likedPostIds = likes.map((l) => l.postId);
 		for (const r of userRxs) userReactedPosts[r.postId] = r.emoji;
+		bookmarkedPostIds = bookmarks.map((b) => b.postId);
 	}
 
 	return {
 		posts,
 		likedPostIds,
 		userReactedPosts,
+		bookmarkedPostIds,
 		pagination: {
 			page,
 			limit,
@@ -243,12 +251,20 @@ export const getPostById = async (postId, userId = null) => {
 	post.reactions = groups.map((g) => ({ emoji: g.emoji, count: g._count.emoji }));
 
 	let userReaction = null;
+	let isPostBookmarked = false;
+	let isPostLiked = false;
 	if (userId) {
-		const ur = await prisma.postReaction.findFirst({ where: { postId, userId }, select: { emoji: true } });
+		const [ur, bm, lk] = await Promise.all([
+			prisma.postReaction.findFirst({ where: { postId, userId }, select: { emoji: true } }),
+			prisma.bookmark.findUnique({ where: { userId_postId: { userId, postId } } }),
+			prisma.like.findUnique({ where: { userId_postId: { userId, postId } } }),
+		]);
 		userReaction = ur?.emoji ?? null;
+		isPostBookmarked = !!bm;
+		isPostLiked = !!lk;
 	}
 
-	return { post, userReaction };
+	return { post, userReaction, isPostBookmarked, isPostLiked };
 };
 
 /**
@@ -384,7 +400,7 @@ export const getReactionUsers = async (postId, emoji = null) => {
 export const getExplorePosts = async ({ sortBy = "trending", page = 1, limit = 21, userId = null }) => {
 	const skip = (page - 1) * limit;
 
-	const where = {};
+	const where = { isStory: false };
 	if (userId) {
 		const blockedIds = await getAllBlockedUserIds(userId);
 		if (blockedIds.length > 0) where.userId = { notIn: blockedIds };
@@ -431,6 +447,127 @@ export const getExplorePosts = async ({ sortBy = "trending", page = 1, limit = 2
 		posts,
 		pagination: { page, limit, total, totalPages: Math.ceil(total / limit) },
 	};
+};
+
+/**
+ * Get all posts that have coordinates, for the map view.
+ */
+export const getMapPosts = async () => {
+	const posts = await prisma.post.findMany({
+		where: {
+			latitude: { not: null },
+			longitude: { not: null },
+		},
+		select: {
+			id: true,
+			imageUrl: true,
+			restaurantName: true,
+			dishName: true,
+			restaurantAddress: true,
+			rating: true,
+			latitude: true,
+			longitude: true,
+			shareSlug: true,
+			user: { select: { id: true, name: true, avatarUrl: true } },
+		},
+		orderBy: { createdAt: "desc" },
+	});
+	return posts;
+};
+
+/**
+ * Create a story (isStory=true, only image + optional caption).
+ */
+export const createStory = async (userId, caption, imageUrl) => {
+	return prisma.post.create({
+		data: {
+			imageUrl,
+			isStory: true,
+			description: caption || "",
+			restaurantName: "",
+			restaurantAddress: "",
+			rating: 5,
+			userId,
+		},
+		include: {
+			user: { select: { id: true, name: true, avatarUrl: true, role: true } },
+			_count: { select: { views: true } },
+		},
+	});
+};
+
+/**
+ * Get stories: current user's latest post + followed users' latest posts (last 7 days).
+ * Returns one post per user, current user first.
+ */
+export const getStories = async (userId) => {
+	const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+
+	const following = await prisma.follow.findMany({
+		where: { followerId: userId },
+		select: { followingId: true },
+	});
+	const userIds = [userId, ...following.map((f) => f.followingId)];
+
+	const posts = await prisma.post.findMany({
+		where: { userId: { in: userIds }, isStory: true, createdAt: { gte: sevenDaysAgo } },
+		orderBy: { createdAt: "desc" },
+		include: {
+			user: { select: { id: true, name: true, avatarUrl: true, role: true } },
+			_count: { select: { views: true } },
+		},
+	});
+
+	// One story per user (most recent)
+	const seen = new Set();
+	const stories = [];
+	for (const post of posts) {
+		if (!seen.has(post.userId)) {
+			seen.add(post.userId);
+			stories.push(post);
+		}
+	}
+
+	// Current user's story first
+	return stories.sort((a, b) => {
+		if (a.userId === userId) return -1;
+		if (b.userId === userId) return 1;
+		return 0;
+	});
+};
+
+/**
+ * Record that a user has viewed a post (once per user per post, skip own posts).
+ */
+export const recordPostView = async (postId, userId) => {
+	const post = await prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
+	if (!post) return;
+	if (post.userId === userId) return; // don't count own views
+
+	await prisma.postView.upsert({
+		where: { userId_postId: { userId, postId } },
+		update: {}, // already viewed — no-op
+		create: { userId, postId },
+	});
+};
+
+/**
+ * Get list of users who viewed a post (only for the post owner).
+ */
+export const getPostViewers = async (postId, requesterId) => {
+	const post = await prisma.post.findUnique({ where: { id: postId }, select: { userId: true } });
+	if (!post) throw ApiError.notFound("Post not found");
+	if (post.userId !== requesterId) throw ApiError.forbidden("Only the post owner can see viewers");
+
+	const rows = await prisma.postView.findMany({
+		where: { postId },
+		orderBy: { viewedAt: "desc" },
+		select: {
+			viewedAt: true,
+			user: { select: { id: true, name: true, avatarUrl: true, role: true } },
+		},
+	});
+	return rows.map((r) => ({ ...r.user, viewedAt: r.viewedAt }));
 };
 
 /**
